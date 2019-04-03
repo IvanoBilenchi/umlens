@@ -1,5 +1,5 @@
 from enum import Enum, unique
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 
 class Element:
@@ -15,12 +15,41 @@ class Element:
     def __str__(self) -> str:
         return self.name
 
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Element):
+            return self.identifier == other.identifier
+        return False
 
-class Datatype(Element):
-    """Models datatypes."""
+    def __hash__(self):
+        return self.identifier.__hash__()
+
+
+class Stereotype(Element):
+    """Models stereotypes."""
 
     def __str__(self) -> str:
-        return '{}: datatype'.format(self.name)
+        return '<<{}>>'.format(self.name)
+
+
+class StereotypedElement(Element):
+    """Models elements with stereotypes."""
+
+    def __init__(self, identifier: str, name: str) -> None:
+        super().__init__(identifier=identifier, name=name)
+        self.stereotypes: List[Stereotype] = []
+
+    def __str__(self) -> str:
+        if self.stereotypes:
+            stereotypes = ' <<{}>>'.format(', '.join(s.name for s in self.stereotypes))
+        else:
+            stereotypes = ''
+
+        return self.name + stereotypes
+
+
+class Datatype(StereotypedElement):
+    """Models datatypes."""
+    pass
 
 
 class TypedElement(Element):
@@ -75,13 +104,6 @@ class Method(Element):
         self.parameters.append(param)
 
 
-class Stereotype(Element):
-    """Models stereotypes."""
-
-    def __str__(self) -> str:
-        return '<<{}>>'.format(self.name)
-
-
 class Class(Datatype):
     """Models classes."""
 
@@ -94,26 +116,70 @@ class Class(Datatype):
         self.abstract = abstract
         self.attributes: List[TypedElement] = []
         self.methods: List[Method] = []
-        self.stereotypes: List[Stereotype] = []
 
     def __str__(self) -> str:
-        header = '{}: class'.format(self.name)
-
-        if self.stereotypes:
-            header += ' <<{}>>'.format(', '.join(s.name for s in self.stereotypes))
-
+        header = super().__str__()
         am_str = '\n'.join(['  {}'.format(a) for a in self.attributes] +
                            ['  {}'.format(m) for m in self.methods])
 
-        return '{} {{\n{}\n}}'.format(header, am_str) if am_str else header
+        return '{} {{\n{}\n}}'.format(header, am_str) if am_str else header + ' {}'
+
+
+class RelationshipType(Enum):
+    """Models class relationship types."""
+    ASSOCIATION = 0
+    DEPENDENCY = 1
+    GENERALIZATION = 2
+    REALIZATION = 3
+
+    def to_string(self) -> str:
+        return self.name.lower().capitalize()
+
+
+class AggregationType(Enum):
+    """Models class aggregation types."""
+    NONE = 0
+    SHARED = 1
+    COMPOSITED = 2
+
+
+class Relationship(StereotypedElement):
+    """Models class relationships."""
+
+    def __init__(self, identifier: str, rel_type: RelationshipType,
+                 from_cls: Class, to_cls: Class) -> None:
+        super().__init__(identifier=identifier, name=rel_type.to_string())
+        self.rel_type = rel_type
+        self.from_cls = from_cls
+        self.to_cls = to_cls
+
+    def __str__(self) -> str:
+        name = super().__str__()
+        return '{}({}, {})'.format(name, self.from_cls.name, self.to_cls.name)
+
+
+class Association(Relationship):
+    """Models class associations."""
+
+    def __init__(self, identifier: str, agg_type: AggregationType,
+                 from_cls: Class, to_cls: Class) -> None:
+        super().__init__(identifier=identifier, rel_type=RelationshipType.ASSOCIATION,
+                         from_cls=from_cls, to_cls=to_cls)
+        self.aggregation_type = agg_type
+
+        if agg_type == AggregationType.SHARED:
+            self.name = 'Aggregation'
+        elif agg_type == AggregationType.COMPOSITED:
+            self.name = 'Composition'
 
 
 class Diagram:
     """Models a class diagram."""
 
     def __init__(self) -> None:
-        self.datatypes = {}
-        self.stereotypes = {}
+        self.datatypes: Dict[str, Datatype] = {}
+        self.stereotypes: Dict[str, Stereotype] = {}
+        self.relationships: Dict[(str, str), List[Relationship]] = {}
 
     def get_class(self, identifier: str) -> Class:
         cls = self.datatypes.get(identifier, None)
@@ -129,7 +195,32 @@ class Diagram:
     def add_stereotype(self, stereotype: Stereotype) -> None:
         self.stereotypes[stereotype.identifier] = stereotype
 
+    def add_relationship(self, relationship: Relationship) -> None:
+        key = (relationship.from_cls.identifier, relationship.to_cls.identifier)
+
+        relationships = self.relationships.get(key, [])
+
+        if not relationships:
+            self.relationships[key] = relationships
+
+        relationships.append(relationship)
+
     def __str__(self) -> str:
-        datatypes = list(self.datatypes.values())
-        datatypes.sort(key=lambda d: d.name)
-        return '\n'.join(str(d) for d in datatypes)
+        dt = list(self.datatypes.values())
+        dt.sort(key=lambda d: d.name)
+
+        cl = [d for d in dt if isinstance(d, Class)]
+        dt = [d for d in dt if not isinstance(d, Class)]
+
+        dt = 'Datatypes:\n----------\n' + '\n'.join(str(d) for d in dt)
+        cl = 'Classes:\n--------\n' + '\n'.join(str(c) for c in cl)
+
+        st = list(self.stereotypes.values())
+        st.sort(key=lambda s: s.name)
+        st = 'Stereotypes:\n------------\n' + '\n'.join(str(s) for s in st)
+
+        rel = [r for sublist in self.relationships.values() for r in sublist]
+        rel.sort(key=lambda r: str(r))
+        rel = 'Relationships:\n--------------\n' + '\n'.join(str(r) for r in rel)
+
+        return '\n\n'.join([dt, st, cl, rel])
