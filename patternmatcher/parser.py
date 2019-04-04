@@ -40,6 +40,7 @@ class XA:
     FROM = 'From'
     ID = 'Id'
     ID_REF = 'Idref'
+    MULTIPLICITY = 'Multiplicity'
     NAME = 'Name'
     SCOPE = 'Scope'
     TO = 'To'
@@ -81,6 +82,22 @@ class Parser:
     @staticmethod
     def _parse_scope(node: Et.Element) -> cd.Scope:
         return cd.Scope.INSTANCE if node.attrib.get(XA.SCOPE, 'instance') else cd.Scope.CLASS
+
+    @staticmethod
+    def _parse_mult(node: Et.Element) -> cd.Multiplicity:
+        mult_str: str = node.attrib[XA.MULTIPLICITY]
+        if mult_str == '0':
+            return cd.Multiplicity.ZERO
+        elif mult_str in ['1', 'Unspecified']:
+            return cd.Multiplicity.ONE
+        elif mult_str in ['*', '0..*']:
+            return cd.Multiplicity.STAR
+        elif mult_str in ['+', '1..*']:
+            return cd.Multiplicity.PLUS
+        elif mult_str.isdigit():
+            return cd.Multiplicity.N
+        else:
+            return cd.Multiplicity.ONE
 
     @staticmethod
     def _parse_rel_type(node: Et.Element) -> Optional[cd.RelationshipType]:
@@ -164,7 +181,9 @@ class Parser:
                 identifier=self._parse_identifier(node),
                 agg_type=self._parse_agg_type(from_node),
                 from_cls=self._diagram.get_class(from_cls_id),
-                to_cls=self._diagram.get_class(to_cls_id)
+                to_cls=self._diagram.get_class(to_cls_id),
+                from_mult=self._parse_mult(from_node),
+                to_mult=self._parse_mult(to_node)
             )
 
             self._add_stereotypes(association, node)

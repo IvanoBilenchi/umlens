@@ -143,6 +143,28 @@ class AggregationType(Enum):
     COMPOSITED = 2
 
 
+class Multiplicity(Enum):
+    """Models multiplicity classes."""
+    ZERO = 0
+    ONE = 1
+    N = 2
+    STAR = 3
+    PLUS = 4
+
+    def is_multiple(self) -> bool:
+        return self.value > 1
+
+    def to_string(self) -> str:
+        if self == Multiplicity.N:
+            return 'N'
+        elif self == Multiplicity.STAR:
+            return '0..*'
+        elif self == Multiplicity.PLUS:
+            return '1..*'
+        else:
+            return str(self.value)
+
+
 class Relationship(StereotypedElement):
     """Models class relationships."""
 
@@ -154,7 +176,7 @@ class Relationship(StereotypedElement):
         self.to_cls = to_cls
 
     def __str__(self) -> str:
-        name = super().__str__()
+        name = StereotypedElement.__str__(self)
         return '{}({}, {})'.format(name, self.from_cls.name, self.to_cls.name)
 
 
@@ -162,15 +184,27 @@ class Association(Relationship):
     """Models class associations."""
 
     def __init__(self, identifier: str, agg_type: AggregationType,
-                 from_cls: Class, to_cls: Class) -> None:
+                 from_cls: Class, to_cls: Class, from_mult: Multiplicity = Multiplicity.ONE,
+                 to_mult: Multiplicity = Multiplicity.ONE) -> None:
         super().__init__(identifier=identifier, rel_type=RelationshipType.ASSOCIATION,
                          from_cls=from_cls, to_cls=to_cls)
         self.aggregation_type = agg_type
+        self.from_mult = from_mult
+        self.to_mult = to_mult
 
         if agg_type == AggregationType.SHARED:
             self.name = 'Aggregation'
         elif agg_type == AggregationType.COMPOSITED:
             self.name = 'Composition'
+
+    def __str__(self) -> str:
+        name = StereotypedElement.__str__(self)
+
+        def _mult_to_str(mult: Multiplicity) -> str:
+            return '' if mult == Multiplicity.ONE else ' ({})'.format(mult.to_string())
+
+        return '{}({}{}, {}{})'.format(name, self.from_cls.name, _mult_to_str(self.from_mult),
+                                       self.to_cls.name, _mult_to_str(self.to_mult))
 
 
 class Diagram:
