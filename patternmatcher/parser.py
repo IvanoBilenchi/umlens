@@ -18,6 +18,7 @@ class XT:
     MODEL_RELATIONSHIP_CONTAINER = 'ModelRelationshipContainer'
     MODELS = 'Models'
     OPERATION = 'Operation'
+    PACKAGE = 'Package'
     PARAMETER = 'Parameter'
     REALIZATION = 'Realization'
     RET_TYPE = 'ReturnType'
@@ -54,11 +55,13 @@ class Parser:
         self._diagram = cd.Diagram()
 
     def parse_document(self, file_path: str) -> cd.Diagram:
-        node: Et.Element = Et.parse(file_path).getroot().find(XT.MODELS)
-        self._parse_datatypes(node)
+        models: Et.Element = Et.parse(file_path).getroot().find(XT.MODELS)
 
-        node = node.find(XT.path(XT.MODEL_RELATIONSHIP_CONTAINER, XT.MODEL_CHILDREN))
-        self._parse_relationships(node)
+        self._parse_stereotypes(models)
+        self._parse_datatypes(models)
+        self._parse_classes(models)
+        self._parse_packages(models)
+        self._parse_relationships(models)
 
         return self._diagram
 
@@ -115,18 +118,27 @@ class Parser:
         except Exception:
             return cd.AggregationType.NONE
 
-    def _parse_datatypes(self, node: Et.Element) -> None:
-        for model in node.findall(XT.STEREOTYPE):
-            self._create_stereotype(model)
+    def _parse_packages(self, node: Et.Element) -> None:
+        for package_node in node.findall(XT.PACKAGE):
+            package = self._create_package(package_node)
 
+            for child in package_node.findall(XT.MODEL_CHILDREN):
+                self._parse_classes(child, package=package)
+
+    def _parse_datatypes(self, node: Et.Element) -> None:
         for model in node.findall(XT.DATATYPE):
             self._create_datatype(model)
 
+    def _parse_classes(self, node: Et.Element, package: Optional[cd.Package] = None) -> None:
         for model in node.findall(XT.CLASS):
-            self._create_class(model)
+            self._create_class(model, package=package)
 
         for model in node.findall(XT.CLASS):
             self._populate_class(model)
+
+    def _parse_stereotypes(self, node: Et.Element) -> None:
+        for model in node.findall(XT.STEREOTYPE):
+            self._create_stereotype(model)
 
     def _parse_relationships(self, node: Et.Element) -> None:
         for tag in [XT.DEPENDENCY, XT.GENERALIZATION, XT.REALIZATION, XT.USAGE]:
@@ -136,24 +148,39 @@ class Parser:
         for child in node.iter(XT.ASSOCIATION):
             self._create_association(child)
 
-    def _create_datatype(self, node: Et.Element) -> None:
-        self._diagram.add_datatype(cd.Datatype(
+    def _create_package(self, node: Et.Element) -> cd.Package:
+        package = cd.Package(
+            identifier=Parser._parse_identifier(node),
+            name=Parser._parse_name(node)
+        )
+        self._diagram.add_element(package)
+        return package
+
+    def _create_datatype(self, node: Et.Element) -> cd.Datatype:
+        datatype = cd.Datatype(
             identifier=self._parse_identifier(node),
             name=self._parse_name(node)
-        ))
+        )
+        self._diagram.add_element(datatype)
+        return datatype
 
-    def _create_class(self, node: Et.Element) -> None:
-        self._diagram.add_datatype(cd.Class(
+    def _create_class(self, node: Et.Element, package: Optional[cd.Package] = None) -> cd.Class:
+        cls = cd.Class(
             identifier=self._parse_identifier(node),
             name=self._parse_name(node),
-            abstract=self._parse_abstract(node)
-        ))
+            abstract=self._parse_abstract(node),
+            package=package
+        )
+        self._diagram.add_element(cls)
+        return cls
 
-    def _create_stereotype(self, node: Et.Element) -> None:
-        self._diagram.add_stereotype(cd.Stereotype(
+    def _create_stereotype(self, node: Et.Element) -> cd.Stereotype:
+        stereotype = cd.Stereotype(
             identifier=self._parse_identifier(node),
             name=self._parse_name(node)
-        ))
+        )
+        self._diagram.add_element(stereotype)
+        return stereotype
 
     def _create_relationship(self, node: Et.Element) -> None:
         try:
@@ -239,12 +266,12 @@ class Parser:
 
     def _get_ref_datatype(self, node: Et.Element) -> Optional[cd.Datatype]:
         try:
-            return self._diagram.datatypes[self._parse_identifier(node[0], attr=XA.ID_REF)]
+            return self._diagram.get_datatype(self._parse_identifier(node[0], attr=XA.ID_REF))
         except Exception:
             return None
 
     def _get_ref_stereotype(self, node: Et.Element) -> Optional[cd.Stereotype]:
         try:
-            return self._diagram.stereotypes[self._parse_identifier(node, attr=XA.ID_REF)]
+            return self._diagram.get_stereotype(self._parse_identifier(node, attr=XA.ID_REF))
         except Exception:
             return None

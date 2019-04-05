@@ -1,5 +1,5 @@
 from enum import Enum, unique
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 
 class Element:
@@ -104,6 +104,11 @@ class Method(Element):
         self.parameters.append(param)
 
 
+class Package(Element):
+    """Models packages."""
+    pass
+
+
 class Class(Datatype):
     """Models classes."""
 
@@ -111,18 +116,24 @@ class Class(Datatype):
     def is_interface(self) -> bool:
         return any(s.name == 'Interface' for s in self.stereotypes)
 
-    def __init__(self, identifier: str, name: str, abstract: bool = False) -> None:
+    def __init__(self, identifier: str, name: str, abstract: bool = False,
+                 package: Optional[Package] = None) -> None:
         super().__init__(identifier=identifier, name=name)
         self.abstract = abstract
+        self.package = package
         self.attributes: List[TypedElement] = []
         self.methods: List[Method] = []
 
     def __str__(self) -> str:
-        header = super().__str__()
+        name = super().__str__()
+
+        if self.package:
+            name = '{}.{}'.format(self.package.name, name)
+
         am_str = '\n'.join(['  {}'.format(a) for a in self.attributes] +
                            ['  {}'.format(m) for m in self.methods])
 
-        return '{} {{\n{}\n}}'.format(header, am_str) if am_str else header + ' {}'
+        return '{} {{\n{}\n}}'.format(name, am_str) if am_str else name + ' {}'
 
 
 class RelationshipType(Enum):
@@ -211,50 +222,68 @@ class Diagram:
     """Models a class diagram."""
 
     def __init__(self) -> None:
-        self.datatypes: Dict[str, Datatype] = {}
-        self.stereotypes: Dict[str, Stereotype] = {}
-        self.relationships: Dict[(str, str), List[Relationship]] = {}
+        self.elements: Dict[str, Element] = {}
+        self.relationships: Dict[(str, str), Set[Relationship]] = {}
+
+    def get_package(self, identifier: str) -> Package:
+        return self._get_typed_element(Package, identifier)
 
     def get_class(self, identifier: str) -> Class:
-        cls = self.datatypes.get(identifier, None)
+        return self._get_typed_element(Class, identifier)
 
-        if not (cls and isinstance(cls, Class)):
-            raise KeyError('No such class: ' + identifier)
+    def get_datatype(self, identifier: str) -> Datatype:
+        return self._get_typed_element(Datatype, identifier)
 
-        return cls
+    def get_stereotype(self, identifier: str) -> Stereotype:
+        return self._get_typed_element(Stereotype, identifier)
 
-    def add_datatype(self, datatype: Datatype) -> None:
-        self.datatypes[datatype.identifier] = datatype
-
-    def add_stereotype(self, stereotype: Stereotype) -> None:
-        self.stereotypes[stereotype.identifier] = stereotype
+    def add_element(self, element: Element) -> None:
+        self.elements[element.identifier] = element
 
     def add_relationship(self, relationship: Relationship) -> None:
         key = (relationship.from_cls.identifier, relationship.to_cls.identifier)
 
-        relationships = self.relationships.get(key, [])
+        relationships = self.relationships.get(key, set())
 
         if not relationships:
             self.relationships[key] = relationships
 
-        relationships.append(relationship)
+        relationships.add(relationship)
 
     def __str__(self) -> str:
-        dt = list(self.datatypes.values())
-        dt.sort(key=lambda d: d.name)
+        el = list(self.elements.values())
+        pk, dt, cl, st = [], [], [], []
 
-        cl = [d for d in dt if isinstance(d, Class)]
-        dt = [d for d in dt if not isinstance(d, Class)]
+        for e in el:
+            if isinstance(e, Class):
+                cl.append(str(e))
+            elif isinstance(e, Stereotype):
+                st.append(str(e))
+            elif isinstance(e, Package):
+                pk.append(str(e))
+            else:
+                dt.append(str(e))
 
-        dt = 'Datatypes:\n----------\n' + '\n'.join(str(d) for d in dt)
-        cl = 'Classes:\n--------\n' + '\n'.join(str(c) for c in cl)
+        rel = [str(r) for sublist in self.relationships.values() for r in sublist]
 
-        st = list(self.stereotypes.values())
-        st.sort(key=lambda s: s.name)
-        st = 'Stereotypes:\n------------\n' + '\n'.join(str(s) for s in st)
+        pk.sort()
+        dt.sort()
+        cl.sort()
+        st.sort()
+        rel.sort()
 
-        rel = [r for sublist in self.relationships.values() for r in sublist]
-        rel.sort(key=lambda r: str(r))
-        rel = 'Relationships:\n--------------\n' + '\n'.join(str(r) for r in rel)
+        pk = 'Packages:\n---------\n' + '\n'.join(pk)
+        dt = 'Datatypes:\n----------\n' + '\n'.join(dt)
+        cl = 'Classes:\n--------\n' + '\n'.join(cl)
+        st = 'Stereotypes:\n------------\n' + '\n'.join(st)
+        rel = 'Relationships:\n--------------\n' + '\n'.join(rel)
 
-        return '\n\n'.join([dt, st, cl, rel])
+        return '\n\n'.join([pk, dt, st, cl, rel])
+
+    def _get_typed_element(self, kind: type, identifier: str) -> Any:
+        el = self.elements.get(identifier, None)
+
+        if not (el and isinstance(el, kind)):
+            raise KeyError('No such {}: {}'.format(str(kind), identifier))
+
+        return el
