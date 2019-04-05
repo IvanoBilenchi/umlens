@@ -103,20 +103,20 @@ class Parser:
             return cd.Multiplicity.ONE
 
     @staticmethod
-    def _parse_rel_type(node: Et.Element) -> Optional[cd.RelationshipType]:
+    def _parse_rel_type(node: Et.Element) -> Optional[cd.RelType]:
         try:
-            return cd.RelationshipType[node.tag.upper()]
+            return cd.RelType[node.tag.upper()]
         except Exception:
             if node.tag == XT.USAGE:
-                return cd.RelationshipType.DEPENDENCY
+                return cd.RelType.DEPENDENCY
             raise
 
     @staticmethod
-    def _parse_agg_type(node: Et.Element) -> cd.AggregationType:
+    def _parse_agg_type(node: Et.Element) -> cd.AggType:
         try:
-            return cd.AggregationType[node.attrib[XA.AGGREGATION_KIND].upper()]
+            return cd.AggType[node.attrib[XA.AGGREGATION_KIND].upper()]
         except Exception:
-            return cd.AggregationType.NONE
+            return cd.AggType.NONE
 
     def _parse_packages(self, node: Et.Element) -> None:
         for package_node in node.findall(XT.PACKAGE):

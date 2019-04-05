@@ -1,6 +1,6 @@
 import argparse
 
-from . import config
+from . import classdiagram as cd, config
 from .parser import Parser
 
 # Constants
@@ -60,5 +60,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main_sub(args) -> int:
-    print(Parser().parse_document(args.input))
+    diagram = Parser().parse_document(args.input)
+
+    print(diagram)
+
+    print('\nRelated classes:\n----------------')
+
+    for cls in sorted(diagram.get_classes()):
+        sub = diagram.get_related_classes(cls, role=cd.RelRole.RHS)
+        print('{}: {}'.format(cls.name, ', '.join(c.name for c in sorted(sub))))
+
     return 0

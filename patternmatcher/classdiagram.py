@@ -1,5 +1,5 @@
 from enum import Enum, unique
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 
 class Element:
@@ -16,9 +16,16 @@ class Element:
         return self.name
 
     def __eq__(self, other) -> bool:
-        if isinstance(other, Element):
+        try:
             return self.identifier == other.identifier
-        return False
+        except AttributeError:
+            return NotImplemented
+
+    def __lt__(self, other) -> bool:
+        try:
+            return self.name < other.name
+        except AttributeError:
+            return NotImplemented
 
     def __hash__(self):
         return self.identifier.__hash__()
@@ -136,7 +143,7 @@ class Class(Datatype):
         return '{} {{\n{}\n}}'.format(name, am_str) if am_str else name + ' {}'
 
 
-class RelationshipType(Enum):
+class RelType(Enum):
     """Models class relationship types."""
     ASSOCIATION = 0
     DEPENDENCY = 1
@@ -147,11 +154,18 @@ class RelationshipType(Enum):
         return self.name.lower().capitalize()
 
 
-class AggregationType(Enum):
+class AggType(Enum):
     """Models class aggregation types."""
     NONE = 0
     SHARED = 1
     COMPOSITED = 2
+
+
+class RelRole(Enum):
+    """Models relationship roles."""
+    LHS = 0
+    RHS = 1
+    ANY = 2
 
 
 class Multiplicity(Enum):
@@ -179,7 +193,7 @@ class Multiplicity(Enum):
 class Relationship(StereotypedElement):
     """Models class relationships."""
 
-    def __init__(self, identifier: str, rel_type: RelationshipType,
+    def __init__(self, identifier: str, rel_type: RelType,
                  from_cls: Class, to_cls: Class) -> None:
         super().__init__(identifier=identifier, name=rel_type.to_string())
         self.rel_type = rel_type
@@ -194,18 +208,18 @@ class Relationship(StereotypedElement):
 class Association(Relationship):
     """Models class associations."""
 
-    def __init__(self, identifier: str, agg_type: AggregationType,
+    def __init__(self, identifier: str, agg_type: AggType,
                  from_cls: Class, to_cls: Class, from_mult: Multiplicity = Multiplicity.ONE,
                  to_mult: Multiplicity = Multiplicity.ONE) -> None:
-        super().__init__(identifier=identifier, rel_type=RelationshipType.ASSOCIATION,
+        super().__init__(identifier=identifier, rel_type=RelType.ASSOCIATION,
                          from_cls=from_cls, to_cls=to_cls)
         self.aggregation_type = agg_type
         self.from_mult = from_mult
         self.to_mult = to_mult
 
-        if agg_type == AggregationType.SHARED:
+        if agg_type == AggType.SHARED:
             self.name = 'Aggregation'
-        elif agg_type == AggregationType.COMPOSITED:
+        elif agg_type == AggType.COMPOSITED:
             self.name = 'Composition'
 
     def __str__(self) -> str:
@@ -221,9 +235,11 @@ class Association(Relationship):
 class Diagram:
     """Models a class diagram."""
 
+    # Public
+
     def __init__(self) -> None:
-        self.elements: Dict[str, Element] = {}
-        self.relationships: Dict[(str, str), Set[Relationship]] = {}
+        self._elements: Dict[str, Element] = {}
+        self._relationships: Dict[str, Set[Relationship]] = {}
 
     def get_package(self, identifier: str) -> Package:
         return self._get_typed_element(Package, identifier)
@@ -237,34 +253,69 @@ class Diagram:
     def get_stereotype(self, identifier: str) -> Stereotype:
         return self._get_typed_element(Stereotype, identifier)
 
+    def get_relationship(self, identifier: str) -> Relationship:
+        return self._get_typed_element(Relationship, identifier)
+
+    def get_classes(self) -> Iterable[Class]:
+        return (c for c in self._elements.values() if isinstance(c, Class))
+
+    def get_relationships(self, cls: Class,
+                          kind: Optional[RelType] = None,
+                          role: RelRole = RelRole.ANY) -> Iterable[Relationship]:
+        rel = self._relationships.get(cls.identifier, [])
+
+        if kind:
+            rel = (r for r in rel if r.rel_type == kind)
+
+        if role == RelRole.LHS:
+            rel = (r for r in rel if r.from_cls == cls)
+        elif role == RelRole.RHS:
+            rel = (r for r in rel if r.to_cls == cls)
+
+        return rel
+
+    def get_related_classes(self, cls: Class,
+                            kind: Optional[RelType] = None,
+                            role: RelRole = RelRole.ANY) -> Iterable[Class]:
+        ret = self.get_relationships(cls, kind=kind)
+
+        if role == RelRole.LHS:
+            ret = (r.from_cls for r in ret if r.from_cls != cls or r.to_cls == cls)
+        elif role == RelRole.RHS:
+            ret = (r.to_cls for r in ret if r.to_cls != cls or r.from_cls == cls)
+        else:
+            ret = (r.to_cls if r.from_cls == cls else r.from_cls for r in ret)
+
+        return ret
+
     def add_element(self, element: Element) -> None:
-        self.elements[element.identifier] = element
+        self._elements[element.identifier] = element
 
     def add_relationship(self, relationship: Relationship) -> None:
-        key = (relationship.from_cls.identifier, relationship.to_cls.identifier)
+        self.add_element(relationship)
 
-        relationships = self.relationships.get(key, set())
+        for key in [relationship.from_cls.identifier, relationship.to_cls.identifier]:
+            relationships = self._relationships.get(key, set())
 
-        if not relationships:
-            self.relationships[key] = relationships
+            if not relationships:
+                self._relationships[key] = relationships
 
-        relationships.add(relationship)
+            relationships.add(relationship)
 
     def __str__(self) -> str:
-        el = list(self.elements.values())
-        pk, dt, cl, st = [], [], [], []
+        pk, dt, cl, st, rel = [], [], [], [], []
 
-        for e in el:
+        for e in self._elements.values():
             if isinstance(e, Class):
                 cl.append(str(e))
             elif isinstance(e, Stereotype):
                 st.append(str(e))
             elif isinstance(e, Package):
                 pk.append(str(e))
+            elif isinstance(e, Relationship):
+                rel.append(str(e))
             else:
                 dt.append(str(e))
-
-        rel = [str(r) for sublist in self.relationships.values() for r in sublist]
 
         pk.sort()
         dt.sort()
@@ -280,8 +331,10 @@ class Diagram:
 
         return '\n\n'.join([pk, dt, st, cl, rel])
 
+    # Private
+
     def _get_typed_element(self, kind: type, identifier: str) -> Any:
-        el = self.elements.get(identifier, None)
+        el = self._elements.get(identifier, None)
 
         if not (el and isinstance(el, kind)):
             raise KeyError('No such {}: {}'.format(str(kind), identifier))
