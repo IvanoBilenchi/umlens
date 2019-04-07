@@ -69,3 +69,12 @@ class Decorator(Pattern):
         self.component = component
         self.concrete_components = concrete_components
         self.concrete_decorators = concrete_decorators
+
+
+class Proxy(Pattern):
+    """Proxy pattern."""
+
+    def __init__(self, proxy: cd.Class, subject: cd.Class, real_subject: cd.Class) -> None:
+        self.proxy = proxy
+        self.subject = subject
+        self.real_subject = real_subject

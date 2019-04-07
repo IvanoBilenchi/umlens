@@ -3,7 +3,7 @@ from itertools import chain
 from typing import Iterable, List, Type
 
 from .classdiagram import AggType, Class, Diagram, Multiplicity, RelRole
-from .pattern import Adapter, Bridge, Composite, Decorator, Pattern
+from .pattern import Adapter, Bridge, Composite, Decorator, Pattern, Proxy
 
 
 class Matcher(ABC):
@@ -51,7 +51,6 @@ class AdapterMatcher(Matcher):
 
         # Find adapters
         adapters = dg.get_realizations(cls)
-        adapters = (c for c in adapters if c.has_methods(cls.methods))
 
         for adapter in adapters:
             # Find adaptees
@@ -111,7 +110,7 @@ class CompositeMatcher(Matcher):
         composites = dg.get_associated_classes(cls, agg_type=AggType.ANY, role=RelRole.LHS,
                                                cls_mult=Multiplicity.MULTIPLE,
                                                other_mult=Multiplicity.ONE)
-        composites = [c for c in composites if c in leaves and c.has_methods(cls.methods)]
+        composites = [c for c in composites if c in leaves]
 
         # Filter leaves
         leaves = [l for l in leaves if l not in composites]
@@ -136,9 +135,7 @@ class DecoratorMatcher(Matcher):
         decorators = dg.get_associated_classes(cls, agg_type=AggType.ANY, role=RelRole.LHS,
                                                cls_mult=Multiplicity.ONE,
                                                other_mult=Multiplicity.ONE)
-        decorators = [d for d in decorators if (d in cc and
-                                                d.has_methods(cls.methods) and
-                                                dg.has_sub_classes(d))]
+        decorators = [d for d in decorators if (d in cc and dg.has_sub_classes(d))]
 
         # Filter concrete components
         cc = [c for c in cc if c not in decorators]
@@ -148,6 +145,33 @@ class DecoratorMatcher(Matcher):
 
             if _all_unique(d, cls, *cc, *cd):
                 yield Decorator(d, cls, cc, cd)
+
+
+class ProxyMatcher(Matcher):
+    """Proxy matcher."""
+
+    @property
+    def pattern_type(self) -> Type[Pattern]:
+        return Proxy
+
+    def match(self, dg: Diagram, cls: Class) -> Iterable[Proxy]:
+        # Find proxies
+        proxies = list(dg.get_realizations(cls) if cls.is_interface else dg.get_sub_classes(cls))
+
+        if len(proxies) <= 1:
+            return
+
+        for p in proxies:
+            if any(r for r in dg.get_associated_classes(p)):
+                continue
+
+            deps = list(r for r in dg.get_dependencies(p))
+
+            if len(deps) == 1:
+                real_subject = deps[0]
+
+                if real_subject in proxies and _all_unique(p, cls, real_subject):
+                    yield Proxy(p, cls, real_subject)
 
 
 def _all_unique(*args) -> bool:

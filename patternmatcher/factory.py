@@ -13,7 +13,8 @@ def create_matcher() -> mt.MultiMatcher:
         mt.AdapterMatcher(),
         mt.BridgeMatcher(),
         mt.CompositeMatcher(),
-        mt.DecoratorMatcher()
+        mt.DecoratorMatcher(),
+        mt.ProxyMatcher()
     )
 
 
