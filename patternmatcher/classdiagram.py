@@ -214,8 +214,7 @@ class RelRole(Flag):
         return self.ANY
 
 
-@unique
-class Multiplicity(Enum):
+class Multiplicity(Flag):
     """Models multiplicity classes."""
     ZERO = auto()
     ONE = auto()
@@ -223,8 +222,9 @@ class Multiplicity(Enum):
     STAR = auto()
     PLUS = auto()
 
-    def is_multiple(self) -> bool:
-        return not (self == self.ZERO or self == self.ONE)
+    AT_MOST_ONE = ZERO | ONE
+    MULTIPLE = N | STAR | PLUS
+    ANY = AT_MOST_ONE | MULTIPLE
 
     def to_string(self) -> str:
         if self == Multiplicity.ZERO:
@@ -324,9 +324,14 @@ class Diagram:
         return rel
 
     def get_associations(self, cls: Class, agg_type: AggType = AggType.NONE,
-                         role: RelRole = RelRole.RHS) -> Iterable[Association]:
+                         role: RelRole = RelRole.RHS,
+                         from_mult: Multiplicity = Multiplicity.ANY,
+                         to_mult: Multiplicity = Multiplicity.ANY) -> Iterable[Association]:
         assoc = self.get_relationships(cls, kind=RelType.ASSOCIATION, role=role)
         assoc = cast(Iterable[Association], assoc)
+
+        if from_mult != Multiplicity.ANY or to_mult != Multiplicity.ANY:
+            assoc = (a for a in assoc if a.from_mult in from_mult and a.to_mult in to_mult)
 
         if agg_type == AggType.NONE:
             assoc = (a for a in assoc if a.aggregation_type == agg_type)
@@ -342,8 +347,19 @@ class Diagram:
         return (r.to_cls if r.from_cls == cls else r.from_cls for r in ret)
 
     def get_associated_classes(self, cls: Class, agg_type: AggType = AggType.NONE,
-                               role: RelRole = RelRole.RHS) -> Iterable[Class]:
-        ret = self.get_associations(cls, agg_type=agg_type, role=role.opposite)
+                               role: RelRole = RelRole.RHS,
+                               cls_mult: Multiplicity = Multiplicity.ANY,
+                               other_mult: Multiplicity = Multiplicity.ANY) -> Iterable[Class]:
+        if role == RelRole.RHS:
+            from_mult, to_mult = cls_mult, other_mult
+        elif role == RelRole.LHS:
+            from_mult, to_mult = other_mult, cls_mult
+        else:
+            from_mult, to_mult = Multiplicity.ANY, Multiplicity.ANY
+
+        ret = self.get_associations(cls, agg_type=agg_type, role=role.opposite,
+                                    from_mult=from_mult, to_mult=to_mult)
+
         return (r.to_cls if r.from_cls == cls else r.from_cls for r in ret)
 
     def get_sub_classes(self, cls: Class) -> Iterable[Class]:
@@ -366,6 +382,13 @@ class Diagram:
 
     def get_dependants(self, cls: Class) -> Iterable[Class]:
         return self.get_related_classes(cls, kind=RelType.DEPENDENCY, role=RelRole.LHS)
+
+    def is_sub_class(self, sub_cls: Class, super_cls: Class) -> bool:
+        return any(c for c in self.get_sub_classes(super_cls) if c == sub_cls)
+
+    def is_realization(self, realization: Class, interface: Class) -> bool:
+        return (interface.is_interface and
+                any(c for c in self.get_realizations(interface) if c == realization))
 
     def add_element(self, element: Element) -> None:
         self._elements[element.identifier] = element

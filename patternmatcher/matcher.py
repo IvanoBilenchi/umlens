@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from itertools import chain
 from typing import Iterable, List, Type
 
-from .classdiagram import AggType, Class, Diagram
-from .pattern import Adapter, Bridge, Pattern
+from .classdiagram import AggType, Class, Diagram, Multiplicity, RelRole
+from .pattern import Adapter, Bridge, Composite, Pattern
 
 
 class Matcher(ABC):
@@ -89,3 +89,30 @@ class BridgeMatcher(Matcher):
         # Find concrete implementors
         concr = list(chain(dg.get_sub_classes(impl), dg.get_realizations(impl)))
         yield Bridge(cls, impl, r_abs, concr)
+
+
+class CompositeMatcher(Matcher):
+    """Composite matcher."""
+
+    @property
+    def pattern_type(self) -> Type[Pattern]:
+        return Composite
+
+    def match(self, dg: Diagram, cls: Class) -> Iterable[Pattern]:
+        # Find leaves
+        leaves = list(dg.get_realizations(cls) if cls.is_interface else dg.get_sub_classes(cls))
+
+        if len(leaves) <= 1:
+            return
+
+        # Find composites
+        composites = dg.get_associated_classes(cls, agg_type=AggType.ANY, role=RelRole.LHS,
+                                               cls_mult=Multiplicity.MULTIPLE,
+                                               other_mult=Multiplicity.ONE)
+        composites = [c for c in composites if c in leaves and c.has_methods(cls.methods)]
+
+        # Filter leaves
+        leaves = [l for l in leaves if l not in composites]
+
+        for c in composites:
+            yield Composite(c, cls, leaves)

@@ -49,3 +49,12 @@ class Bridge(Pattern):
         self.implementor = implementor
         self.refined_abstractions = refined_abstractions
         self.concrete_implementors = concrete_implementors
+
+
+class Composite(Pattern):
+    """Composite pattern."""
+
+    def __init__(self, composite: cd.Class, component: cd.Class, leaves: List[cd.Class]) -> None:
+        self.composite = composite
+        self.component = component
+        self.leaves = leaves
