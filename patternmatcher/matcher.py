@@ -3,7 +3,7 @@ from itertools import chain
 from typing import Iterable, List, Type
 
 from .classdiagram import AggType, Class, Diagram, Multiplicity, RelRole
-from .pattern import Adapter, Bridge, Composite, Pattern
+from .pattern import Adapter, Bridge, Composite, Decorator, Pattern
 
 
 class Matcher(ABC):
@@ -57,7 +57,7 @@ class AdapterMatcher(Matcher):
             # Find adaptees
             adaptees = list(chain(dg.get_dependencies(adapter), dg.get_super_classes(adapter)))
 
-            if len(adaptees) == 1:
+            if len(adaptees) == 1 and _all_unique(cls, adapter, adaptees[0]):
                 yield Adapter(cls, adapter, adaptees[0])
 
 
@@ -88,7 +88,9 @@ class BridgeMatcher(Matcher):
 
         # Find concrete implementors
         concr = list(chain(dg.get_sub_classes(impl), dg.get_realizations(impl)))
-        yield Bridge(cls, impl, r_abs, concr)
+
+        if _all_unique(cls, impl, *r_abs, *concr):
+            yield Bridge(cls, impl, r_abs, concr)
 
 
 class CompositeMatcher(Matcher):
@@ -98,7 +100,7 @@ class CompositeMatcher(Matcher):
     def pattern_type(self) -> Type[Pattern]:
         return Composite
 
-    def match(self, dg: Diagram, cls: Class) -> Iterable[Pattern]:
+    def match(self, dg: Diagram, cls: Class) -> Iterable[Composite]:
         # Find leaves
         leaves = list(dg.get_realizations(cls) if cls.is_interface else dg.get_sub_classes(cls))
 
@@ -113,6 +115,41 @@ class CompositeMatcher(Matcher):
 
         # Filter leaves
         leaves = [l for l in leaves if l not in composites]
+        yield from (Composite(c, cls, leaves) for c in composites if _all_unique(c, cls, *leaves))
 
-        for c in composites:
-            yield Composite(c, cls, leaves)
+
+class DecoratorMatcher(Matcher):
+    """Decorator matcher."""
+
+    @property
+    def pattern_type(self) -> Type[Pattern]:
+        return Decorator
+
+    def match(self, dg: Diagram, cls: Class) -> Iterable[Decorator]:
+        # Find concrete components
+        cc = list(dg.get_realizations(cls) if cls.is_interface else dg.get_sub_classes(cls))
+
+        if len(cc) <= 1:
+            return
+
+        # Find decorators
+        decorators = dg.get_associated_classes(cls, agg_type=AggType.ANY, role=RelRole.LHS,
+                                               cls_mult=Multiplicity.ONE,
+                                               other_mult=Multiplicity.ONE)
+        decorators = [d for d in decorators if (d in cc and
+                                                d.has_methods(cls.methods) and
+                                                dg.has_sub_classes(d))]
+
+        # Filter concrete components
+        cc = [c for c in cc if c not in decorators]
+
+        for d in decorators:
+            cd = list(dg.get_sub_classes(d))
+
+            if _all_unique(d, cls, *cc, *cd):
+                yield Decorator(d, cls, cc, cd)
+
+
+def _all_unique(*args) -> bool:
+    seen = set()
+    return not any(i in seen or seen.add(i) for i in args)

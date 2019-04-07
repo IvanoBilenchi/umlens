@@ -58,3 +58,14 @@ class Composite(Pattern):
         self.composite = composite
         self.component = component
         self.leaves = leaves
+
+
+class Decorator(Pattern):
+    """Decorator pattern."""
+
+    def __init__(self, decorator: cd.Class, component: cd.Class,
+                 concrete_components: List[cd.Class], concrete_decorators: List[cd.Class]) -> None:
+        self.decorator = decorator
+        self.component = component
+        self.concrete_components = concrete_components
+        self.concrete_decorators = concrete_decorators

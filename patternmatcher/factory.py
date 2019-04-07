@@ -9,7 +9,12 @@ def create_diagram(file_path: str) -> cd.Diagram:
 
 
 def create_matcher() -> mt.MultiMatcher:
-    return mt.MultiMatcher(mt.AdapterMatcher(), mt.BridgeMatcher(), mt.CompositeMatcher())
+    return mt.MultiMatcher(
+        mt.AdapterMatcher(),
+        mt.BridgeMatcher(),
+        mt.CompositeMatcher(),
+        mt.DecoratorMatcher()
+    )
 
 
 def create_finder(file_path: str) -> PatternFinder:

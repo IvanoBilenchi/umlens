@@ -390,6 +390,12 @@ class Diagram:
         return (interface.is_interface and
                 any(c for c in self.get_realizations(interface) if c == realization))
 
+    def has_sub_classes(self, cls: Class) -> bool:
+        return any(self.get_sub_classes(cls))
+
+    def has_realizations(self, cls: Class) -> bool:
+        return any(self.get_realizations(cls))
+
     def add_element(self, element: Element) -> None:
         self._elements[element.identifier] = element
 
