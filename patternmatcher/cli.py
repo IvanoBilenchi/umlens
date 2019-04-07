@@ -1,7 +1,7 @@
 import argparse
 
-from . import classdiagram as cd, config
-from .parser import Parser
+from . import config
+from . import factory
 
 # Constants
 
@@ -60,14 +60,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main_sub(args) -> int:
-    diagram = Parser().parse_document(args.input)
 
-    print(diagram)
-
-    print('\nRelated classes:\n----------------')
-
-    for cls in sorted(diagram.get_classes()):
-        sub = diagram.get_related_classes(cls, role=cd.RelRole.RHS)
-        print('{}: {}'.format(cls.name, ', '.join(c.name for c in sorted(sub))))
+    for pattern in factory.create_finder(args.input).get_patterns():
+        print(pattern)
 
     return 0
