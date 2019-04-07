@@ -71,6 +71,14 @@ class Decorator(Pattern):
         self.concrete_decorators = concrete_decorators
 
 
+class Facade(Pattern):
+    """Facade pattern."""
+
+    def __init__(self, facade: cd.Class, classes: List[cd.Class]) -> None:
+        self.facade = facade
+        self.classes = classes
+
+
 class Proxy(Pattern):
     """Proxy pattern."""
 

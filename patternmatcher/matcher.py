@@ -3,7 +3,7 @@ from itertools import chain
 from typing import Iterable, List, Type
 
 from .classdiagram import AggType, Class, Diagram, Multiplicity, RelRole
-from .pattern import Adapter, Bridge, Composite, Decorator, Pattern, Proxy
+from .pattern import Adapter, Bridge, Composite, Decorator, Facade, Pattern, Proxy
 
 
 class Matcher(ABC):
@@ -145,6 +145,20 @@ class DecoratorMatcher(Matcher):
 
             if _all_unique(d, cls, *cc, *cd):
                 yield Decorator(d, cls, cc, cd)
+
+
+class FacadeMatcher(Matcher):
+    """Facade matcher."""
+
+    @property
+    def pattern_type(self) -> Type[Pattern]:
+        return Facade
+
+    def match(self, dg: Diagram, cls: Class) -> Iterable[Facade]:
+        # Find dependencies
+        deps = list(dg.get_dependencies(cls))
+        if len(deps) > 2:
+            yield Facade(cls, deps)
 
 
 class ProxyMatcher(Matcher):
