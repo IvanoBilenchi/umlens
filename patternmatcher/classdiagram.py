@@ -295,8 +295,8 @@ class Association(Relationship):
 class Diagram:
     """Models a class diagram."""
 
-    RelationshipMatch = Callable[['Diagram', Relationship], bool]
-    AssociationMatch = Callable[['Diagram', Association], bool]
+    RelationshipMatch = Callable[[Relationship], bool]
+    AssociationMatch = Callable[[Association], bool]
 
     # Public
 
@@ -337,7 +337,7 @@ class Diagram:
             rel = (r for r in rel if r.to_cls == cls)
 
         if match:
-            rel = (r for r in rel if match(self, r))
+            rel = (r for r in rel if match(r))
 
         return rel
 
@@ -347,7 +347,7 @@ class Diagram:
         assoc = cast(Iterable[Association], assoc)
 
         if match:
-            assoc = (a for a in assoc if match(self, a))
+            assoc = (a for a in assoc if match(a))
 
         return assoc
 

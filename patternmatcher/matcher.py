@@ -46,13 +46,13 @@ class AbstractFactoryMatcher(Matcher):
 
         # Find concrete factories
         cf = list(c for c in dg.get_realizations(cls)
-                  if any(r for r in dg.get_dependencies(c, match=lambda d, r: r.is_creational)))
+                  if any(r for r in dg.get_dependencies(c, match=lambda r: r.is_creational)))
 
         if not cf:
             return
 
         # Find concrete products
-        cp = set(p for f in cf for p in dg.get_dependencies(f, match=lambda d, r: r.is_creational))
+        cp = set(p for f in cf for p in dg.get_dependencies(f, match=lambda r: r.is_creational))
 
         yield AbstractFactory(cls, list(pr), cf, list(cp))
 
@@ -70,7 +70,7 @@ class AdapterMatcher(Matcher):
         for adapter in adapters:
             # Find adaptees
             adaptees = list(chain(
-                dg.get_dependencies(adapter, match=lambda d, r: not r.is_creational),
+                dg.get_dependencies(adapter, match=lambda r: not r.is_creational),
                 dg.get_super_classes(adapter)
             ))
 
@@ -92,7 +92,7 @@ class BridgeMatcher(Matcher):
             return
 
         # Find implementor
-        impl = list(dg.get_associated_classes(cls, match=(lambda d, a:
+        impl = list(dg.get_associated_classes(cls, match=(lambda a:
                                                           a.aggregation_type in AggType.ANY)))
 
         if len(impl) != 1:
@@ -120,7 +120,7 @@ class CompositeMatcher(Matcher):
         # Find composites
         composites = dg.get_associated_classes(cls,
                                                role=RelRole.RHS,
-                                               match=(lambda d, a:
+                                               match=(lambda a:
                                                       a.aggregation_type in AggType.ANY and
                                                       a.from_mult == Multiplicity.ONE and
                                                       a.to_mult in Multiplicity.MULTIPLE))
@@ -144,7 +144,7 @@ class DecoratorMatcher(Matcher):
         # Find decorators
         decorators = dg.get_associated_classes(cls,
                                                role=RelRole.RHS,
-                                               match=(lambda d, a:
+                                               match=(lambda a:
                                                       a.aggregation_type in AggType.ANY and
                                                       a.from_mult in Multiplicity.ONE and
                                                       a.to_mult == Multiplicity.ONE))
@@ -180,7 +180,7 @@ class FactoryMethodMatcher(Matcher):
         methods = (m for m in dg.get_methods(cls)
                    if isinstance(m.return_type, Class) and self._regex.match(m.name))
 
-        created = list(dg.get_dependencies(cls, match=(lambda d, r:
+        created = list(dg.get_dependencies(cls, match=(lambda r:
                                                        (r.is_creational and
                                                         not r.to_cls.is_interface))))
 
