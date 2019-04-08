@@ -1,7 +1,7 @@
 import argparse
 
 from . import config
-from . import factory
+from .factory import AppFactory
 
 # Constants
 
@@ -61,7 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main_sub(args) -> int:
 
-    for pattern in factory.create_finder(args.input).get_patterns():
+    for pattern in AppFactory().create_finder(args.input).get_patterns():
         print(pattern)
 
     return 0
