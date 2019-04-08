@@ -84,7 +84,9 @@ class Parser:
 
     @staticmethod
     def _parse_scope(node: Et.Element) -> cd.Scope:
-        return cd.Scope.INSTANCE if node.attrib.get(XA.SCOPE, 'instance') else cd.Scope.CLASS
+        if node.attrib.get(XA.SCOPE, 'instance') == 'instance':
+            return cd.Scope.INSTANCE
+        return cd.Scope.CLASS
 
     @staticmethod
     def _parse_mult(node: Et.Element) -> cd.Multiplicity:
