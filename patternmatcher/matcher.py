@@ -4,7 +4,9 @@ from itertools import chain
 from typing import Iterable, List, Type
 
 from .classdiagram import AggType, Class, Diagram, Multiplicity, RelRole
-from .pattern import Adapter, Bridge, Composite, Decorator, Facade, FactoryMethod, Pattern, Proxy
+from .pattern import (
+    AbstractFactory, Adapter, Bridge, Composite, Decorator, Facade, FactoryMethod, Pattern, Proxy
+)
 
 
 class Matcher(ABC):
@@ -37,6 +39,39 @@ class MultiMatcher(Matcher):
 
     def match(self, dg: Diagram, cls: Class) -> Iterable[Pattern]:
         yield from (p for m in self._matchers for p in m.match(dg, cls))
+
+
+class AbstractFactoryMatcher(Matcher):
+    """Abstract factory matcher."""
+
+    @property
+    def pattern_type(self) -> Type[Pattern]:
+        return AbstractFactory
+
+    def __init__(self, factory_method_matcher: 'FactoryMethodMatcher') -> None:
+        self._factory_method_matcher = factory_method_matcher
+
+    def match(self, dg: Diagram, cls: Class) -> Iterable[AbstractFactory]:
+        if not cls.is_interface:
+            return
+
+        # Find products
+        pr = set(m.product for m in self._factory_method_matcher.match(dg, cls))
+
+        if not pr:
+            return
+
+        # Find concrete factories
+        cf = list(c for c in dg.get_realizations(cls)
+                  if any(r for r in dg.get_dependencies(c, match=lambda d, r: r.is_creational)))
+
+        if not cf:
+            return
+
+        # Find concrete products
+        cp = set(p for f in cf for p in dg.get_dependencies(f, match=lambda d, r: r.is_creational))
+
+        yield AbstractFactory(cls, list(pr), cf, list(cp))
 
 
 class AdapterMatcher(Matcher):

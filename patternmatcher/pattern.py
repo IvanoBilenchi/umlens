@@ -30,6 +30,17 @@ class Pattern:
         return '{} {{\n{}\n}}'.format(self.name, '\n'.join(attrs))
 
 
+class AbstractFactory(Pattern):
+    """Abstract factory pattern."""
+
+    def __init__(self, abstract_factory: cd.Class, products: List[cd.Class],
+                 concrete_factories: List[cd.Class], concrete_products: List[cd.Class]) -> None:
+        self.abstract_factory = abstract_factory
+        self.products = products
+        self.concrete_factories = concrete_factories
+        self.concrete_products = concrete_products
+
+
 class Adapter(Pattern):
     """Adapter pattern."""
 
