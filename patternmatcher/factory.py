@@ -31,7 +31,8 @@ class AppFactory:
             self.create_matcher(mt.FacadeMatcher),
             self.create_matcher(mt.FactoryMethodMatcher),
             self.create_matcher(mt.PrototypeMatcher),
-            self.create_matcher(mt.ProxyMatcher)
+            self.create_matcher(mt.ProxyMatcher),
+            self.create_matcher(mt.SingletonMatcher)
         )
 
     @memoized

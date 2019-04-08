@@ -114,3 +114,12 @@ class Proxy(Pattern):
         self.proxy = proxy
         self.subject = subject
         self.real_subject = real_subject
+
+
+class Singleton(Pattern):
+    """Singleton pattern."""
+
+    def __init__(self, singleton: cd.Class, attribute: cd.Attribute, method: cd.Method) -> None:
+        self.singleton = singleton
+        self.attribute = attribute
+        self.method = method

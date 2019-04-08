@@ -3,10 +3,10 @@ from abc import ABC, abstractmethod
 from itertools import chain
 from typing import Iterable, List
 
-from .classdiagram import AggType, Class, Diagram, Multiplicity, RelRole
+from .classdiagram import AggType, Class, Diagram, Multiplicity, RelRole, Scope
 from .pattern import (
     AbstractFactory, Adapter, Bridge, Composite, Decorator, Facade, FactoryMethod, Pattern,
-    Prototype, Proxy
+    Prototype, Proxy, Singleton
 )
 
 
@@ -235,6 +235,27 @@ class ProxyMatcher(Matcher):
 
                 if real_subject in proxies and _all_unique(p, cls, real_subject):
                     yield Proxy(p, cls, real_subject)
+
+
+class SingletonMatcher(Matcher):
+    """Singleton matcher."""
+
+    def match(self, dg: Diagram, cls: Class) -> Iterable[Singleton]:
+        eligible = (a for a in cls.attributes if (a.scope == Scope.CLASS and
+                                                  a.datatype == cls))
+        attribute = next(eligible, None)
+
+        if not attribute:
+            return
+
+        eligible = (m for m in cls.methods if (m.scope == Scope.CLASS and
+                                               not m.parameters and
+                                               m.return_type == cls))
+
+        method = next(eligible, None)
+
+        if method:
+            yield Singleton(cls, attribute, method)
 
 
 def _all_unique(*args) -> bool:
