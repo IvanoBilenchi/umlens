@@ -15,6 +15,7 @@ def create_matcher() -> mt.MultiMatcher:
         mt.CompositeMatcher(),
         mt.DecoratorMatcher(),
         mt.FacadeMatcher(),
+        mt.FactoryMethodMatcher(),
         mt.ProxyMatcher()
     )
 

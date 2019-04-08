@@ -1,5 +1,6 @@
 from enum import auto, Enum, Flag, unique
-from typing import cast, Any, Dict, Iterable, List, Optional, Set
+from itertools import chain
+from typing import cast, Any, Callable, Dict, Iterable, List, Optional, Set
 
 
 class Element:
@@ -33,6 +34,11 @@ class Element:
 
 class Stereotype(Element):
     """Models stereotypes."""
+
+    _creational_names = {'create', 'instantiate'}
+
+    def is_creational(self) -> bool:
+        return self.name in self._creational_names
 
     def __repr__(self) -> str:
         return '<<{}>>'.format(self.name)
@@ -242,6 +248,11 @@ class Multiplicity(Flag):
 class Relationship(StereotypedElement):
     """Models class relationships."""
 
+    @property
+    def is_creational(self) -> bool:
+        return (self.rel_type == RelType.DEPENDENCY and
+                any(s.is_creational for s in self.stereotypes))
+
     def __init__(self, identifier: str, rel_type: RelType,
                  from_cls: Class, to_cls: Class) -> None:
         super().__init__(identifier=identifier, name=rel_type.to_string())
@@ -284,6 +295,9 @@ class Association(Relationship):
 class Diagram:
     """Models a class diagram."""
 
+    RelationshipMatch = Callable[['Diagram', Relationship], bool]
+    AssociationMatch = Callable[['Diagram', Association], bool]
+
     # Public
 
     def __init__(self) -> None:
@@ -310,7 +324,8 @@ class Diagram:
 
     def get_relationships(self, cls: Class,
                           kind: Optional[RelType] = None,
-                          role: RelRole = RelRole.ANY) -> Iterable[Relationship]:
+                          role: RelRole = RelRole.ANY,
+                          match: RelationshipMatch = None) -> Iterable[Relationship]:
         rel = self._relationships.get(cls.identifier, [])
 
         if kind:
@@ -321,67 +336,59 @@ class Diagram:
         elif role == RelRole.RHS:
             rel = (r for r in rel if r.to_cls == cls)
 
+        if match:
+            rel = (r for r in rel if match(self, r))
+
         return rel
 
-    def get_associations(self, cls: Class, agg_type: AggType = AggType.NONE,
-                         role: RelRole = RelRole.RHS,
-                         from_mult: Multiplicity = Multiplicity.ANY,
-                         to_mult: Multiplicity = Multiplicity.ANY) -> Iterable[Association]:
+    def get_associations(self, cls: Class, role: RelRole = RelRole.RHS,
+                         match: AssociationMatch = None) -> Iterable[Association]:
         assoc = self.get_relationships(cls, kind=RelType.ASSOCIATION, role=role)
         assoc = cast(Iterable[Association], assoc)
 
-        if from_mult != Multiplicity.ANY or to_mult != Multiplicity.ANY:
-            assoc = (a for a in assoc if a.from_mult in from_mult and a.to_mult in to_mult)
-
-        if agg_type == AggType.NONE:
-            assoc = (a for a in assoc if a.aggregation_type == agg_type)
-        else:
-            assoc = (a for a in assoc if a.aggregation_type in agg_type)
+        if match:
+            assoc = (a for a in assoc if match(self, a))
 
         return assoc
 
     def get_related_classes(self, cls: Class,
                             kind: Optional[RelType] = None,
-                            role: RelRole = RelRole.RHS) -> Iterable[Class]:
-        ret = self.get_relationships(cls, kind=kind, role=role.opposite)
-        return (r.to_cls if r.from_cls == cls else r.from_cls for r in ret)
+                            role: RelRole = RelRole.LHS,
+                            match: RelationshipMatch = None) -> Iterable[Class]:
+        return (r.to_cls if r.from_cls == cls else r.from_cls
+                for r in self.get_relationships(cls, kind=kind, role=role, match=match))
 
-    def get_associated_classes(self, cls: Class, agg_type: AggType = AggType.NONE,
-                               role: RelRole = RelRole.RHS,
-                               cls_mult: Multiplicity = Multiplicity.ANY,
-                               other_mult: Multiplicity = Multiplicity.ANY) -> Iterable[Class]:
-        if role == RelRole.RHS:
-            from_mult, to_mult = cls_mult, other_mult
-        elif role == RelRole.LHS:
-            from_mult, to_mult = other_mult, cls_mult
-        else:
-            from_mult, to_mult = Multiplicity.ANY, Multiplicity.ANY
+    def get_associated_classes(self, cls: Class, role: RelRole = RelRole.LHS,
+                               match: AssociationMatch = None) -> Iterable[Class]:
+        return (r.to_cls if r.from_cls == cls else r.from_cls
+                for r in self.get_associations(cls, role=role, match=match))
 
-        ret = self.get_associations(cls, agg_type=agg_type, role=role.opposite,
-                                    from_mult=from_mult, to_mult=to_mult)
+    def get_sub_classes(self, cls: Class, match: RelationshipMatch = None) -> Iterable[Class]:
+        return self.get_related_classes(cls, kind=RelType.GENERALIZATION,
+                                        role=RelRole.LHS, match=match)
 
-        return (r.to_cls if r.from_cls == cls else r.from_cls for r in ret)
+    def get_super_classes(self, cls: Class, match: RelationshipMatch = None) -> Iterable[Class]:
+        return self.get_related_classes(cls, kind=RelType.GENERALIZATION,
+                                        role=RelRole.RHS, match=match)
 
-    def get_sub_classes(self, cls: Class) -> Iterable[Class]:
-        return self.get_related_classes(cls, kind=RelType.GENERALIZATION, role=RelRole.RHS)
-
-    def get_super_classes(self, cls: Class) -> Iterable[Class]:
-        return self.get_related_classes(cls, kind=RelType.GENERALIZATION, role=RelRole.LHS)
-
-    def get_realizations(self, cls: Class) -> Iterable[Class]:
+    def get_realizations(self, cls: Class, match: RelationshipMatch = None) -> Iterable[Class]:
         if not cls.is_interface:
             return
 
-        yield from self.get_related_classes(cls, kind=RelType.REALIZATION, role=RelRole.RHS)
+        yield from self.get_related_classes(cls, kind=RelType.REALIZATION,
+                                            role=RelRole.LHS, match=match)
 
-    def get_interfaces(self, cls: Class) -> Iterable[Class]:
-        return self.get_related_classes(cls, kind=RelType.REALIZATION, role=RelRole.LHS)
+    def get_interfaces(self, cls: Class, match: RelationshipMatch = None) -> Iterable[Class]:
+        return self.get_related_classes(cls, kind=RelType.REALIZATION,
+                                        role=RelRole.RHS, match=match)
 
-    def get_dependencies(self, cls: Class) -> Iterable[Class]:
-        return self.get_related_classes(cls, kind=RelType.DEPENDENCY, role=RelRole.RHS)
+    def get_dependencies(self, cls: Class, match: RelationshipMatch = None) -> Iterable[Class]:
+        return self.get_related_classes(cls, kind=RelType.DEPENDENCY,
+                                        role=RelRole.LHS, match=match)
 
-    def get_dependants(self, cls: Class) -> Iterable[Class]:
-        return self.get_related_classes(cls, kind=RelType.DEPENDENCY, role=RelRole.LHS)
+    def get_dependants(self, cls: Class, match: RelationshipMatch = None) -> Iterable[Class]:
+        return self.get_related_classes(cls, kind=RelType.DEPENDENCY,
+                                        role=RelRole.RHS, match=match)
 
     def is_sub_class(self, sub_cls: Class, super_cls: Class) -> bool:
         return any(c for c in self.get_sub_classes(super_cls) if c == sub_cls)
@@ -395,6 +402,12 @@ class Diagram:
 
     def has_realizations(self, cls: Class) -> bool:
         return any(self.get_realizations(cls))
+
+    def get_methods(self, cls: Class) -> Iterable[Method]:
+        yield from cls.methods
+
+        for c in chain(self.get_interfaces(cls), self.get_super_classes(cls)):
+            yield from self.get_methods(c)
 
     def add_element(self, element: Element) -> None:
         self._elements[element.identifier] = element

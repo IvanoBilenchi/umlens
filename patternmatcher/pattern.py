@@ -79,6 +79,15 @@ class Facade(Pattern):
         self.classes = classes
 
 
+class FactoryMethod(Pattern):
+    """Factory pattern."""
+
+    def __init__(self, factory: cd.Class, method: cd.Method, product: cd.Class) -> None:
+        self.factory = factory
+        self.method = method
+        self.product = product
+
+
 class Proxy(Pattern):
     """Proxy pattern."""
 

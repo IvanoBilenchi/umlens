@@ -1,9 +1,10 @@
+import re
 from abc import ABC, abstractmethod
 from itertools import chain
 from typing import Iterable, List, Type
 
 from .classdiagram import AggType, Class, Diagram, Multiplicity, RelRole
-from .pattern import Adapter, Bridge, Composite, Decorator, Facade, Pattern, Proxy
+from .pattern import Adapter, Bridge, Composite, Decorator, Facade, FactoryMethod, Pattern, Proxy
 
 
 class Matcher(ABC):
@@ -54,7 +55,10 @@ class AdapterMatcher(Matcher):
 
         for adapter in adapters:
             # Find adaptees
-            adaptees = list(chain(dg.get_dependencies(adapter), dg.get_super_classes(adapter)))
+            adaptees = list(chain(
+                dg.get_dependencies(adapter, match=lambda d, r: not r.is_creational),
+                dg.get_super_classes(adapter)
+            ))
 
             if len(adaptees) == 1 and _all_unique(cls, adapter, adaptees[0]):
                 yield Adapter(cls, adapter, adaptees[0])
@@ -78,7 +82,8 @@ class BridgeMatcher(Matcher):
             return
 
         # Find implementor
-        impl = list(dg.get_associated_classes(cls, agg_type=AggType.ANY))
+        impl = list(dg.get_associated_classes(cls, match=(lambda d, a:
+                                                          a.aggregation_type in AggType.ANY)))
 
         if len(impl) != 1:
             return
@@ -107,9 +112,12 @@ class CompositeMatcher(Matcher):
             return
 
         # Find composites
-        composites = dg.get_associated_classes(cls, agg_type=AggType.ANY, role=RelRole.LHS,
-                                               cls_mult=Multiplicity.MULTIPLE,
-                                               other_mult=Multiplicity.ONE)
+        composites = dg.get_associated_classes(cls,
+                                               role=RelRole.RHS,
+                                               match=(lambda d, a:
+                                                      a.aggregation_type in AggType.ANY and
+                                                      a.from_mult == Multiplicity.ONE and
+                                                      a.to_mult in Multiplicity.MULTIPLE))
         composites = [c for c in composites if c in leaves]
 
         # Filter leaves
@@ -132,9 +140,12 @@ class DecoratorMatcher(Matcher):
             return
 
         # Find decorators
-        decorators = dg.get_associated_classes(cls, agg_type=AggType.ANY, role=RelRole.LHS,
-                                               cls_mult=Multiplicity.ONE,
-                                               other_mult=Multiplicity.ONE)
+        decorators = dg.get_associated_classes(cls,
+                                               role=RelRole.RHS,
+                                               match=(lambda d, a:
+                                                      a.aggregation_type in AggType.ANY and
+                                                      a.from_mult in Multiplicity.ONE and
+                                                      a.to_mult == Multiplicity.ONE))
         decorators = [d for d in decorators if (d in cc and dg.has_sub_classes(d))]
 
         # Filter concrete components
@@ -159,6 +170,34 @@ class FacadeMatcher(Matcher):
         deps = list(dg.get_dependencies(cls))
         if len(deps) > 2:
             yield Facade(cls, deps)
+
+
+class FactoryMethodMatcher(Matcher):
+    """Factory method matcher."""
+
+    _regex = re.compile(r'^(?:alloc|build|construct|create|instantiate|new)', re.I)
+
+    @property
+    def pattern_type(self) -> Type[Pattern]:
+        return FactoryMethod
+
+    def match(self, dg: Diagram, cls: Class) -> Iterable[FactoryMethod]:
+        # Find factory methods
+        methods = (m for m in dg.get_methods(cls)
+                   if isinstance(m.return_type, Class) and self._regex.match(m.name))
+
+        created = list(dg.get_dependencies(cls, match=(lambda d, r:
+                                                       (r.is_creational and
+                                                        not r.to_cls.is_interface))))
+
+        for m in methods:
+            # Attempt to find specific types
+            ret_type = m.return_type
+
+            if ret_type.is_interface:
+                ret_type = next((c for c in created if dg.is_realization(c, ret_type)), ret_type)
+
+            yield FactoryMethod(cls, m, ret_type)
 
 
 class ProxyMatcher(Matcher):
