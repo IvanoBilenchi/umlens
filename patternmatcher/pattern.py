@@ -99,6 +99,14 @@ class FactoryMethod(Pattern):
         self.product = product
 
 
+class Prototype(Pattern):
+    """Prototype pattern."""
+
+    def __init__(self, prototype: cd.Class, concrete_prototypes: List[cd.Class]) -> None:
+        self.prototype = prototype
+        self.concrete_prototypes = concrete_prototypes
+
+
 class Proxy(Pattern):
     """Proxy pattern."""
 

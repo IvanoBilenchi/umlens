@@ -5,7 +5,8 @@ from typing import Iterable, List
 
 from .classdiagram import AggType, Class, Diagram, Multiplicity, RelRole
 from .pattern import (
-    AbstractFactory, Adapter, Bridge, Composite, Decorator, Facade, FactoryMethod, Pattern, Proxy
+    AbstractFactory, Adapter, Bridge, Composite, Decorator, Facade, FactoryMethod, Pattern,
+    Prototype, Proxy
 )
 
 
@@ -191,6 +192,26 @@ class FactoryMethodMatcher(Matcher):
                 ret_type = next((c for c in created if dg.is_realization(c, ret_type)), ret_type)
 
             yield FactoryMethod(cls, m, ret_type)
+
+
+class PrototypeMatcher(Matcher):
+    """Prototype matcher."""
+
+    _copy_method_names = {'clone', 'copy'}
+
+    def match(self, dg: Diagram, cls: Class) -> Iterable[Prototype]:
+        if not (cls.is_interface and any(m for m in cls.methods
+                                         if (m.return_type == cls and
+                                             m.name in self._copy_method_names))):
+            return
+
+        # Find concrete prototypes
+        cp = list(dg.get_realizations(cls))
+
+        if not cp:
+            return
+
+        yield Prototype(cls, cp)
 
 
 class ProxyMatcher(Matcher):
