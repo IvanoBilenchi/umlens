@@ -1,12 +1,12 @@
 import argparse
 
-from . import config
-from .factory import AppFactory
+from . import config, controller
 
 # Constants
 
 
 EXE_NAME = 'matcher'
+ALL_PATTERNS = controller.matchers.keys()
 
 
 # CLI parser
@@ -48,6 +48,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     main_parser.add_argument('input',
                              help='Input document.')
+    main_parser.add_argument('-p', '--pattern',
+                             choices=ALL_PATTERNS,
+                             nargs='*',
+                             help='Patterns to match.')
     main_parser.add_argument('-o', '--output',
                              help='Output file path.')
 
@@ -60,8 +64,4 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main_sub(args) -> int:
-
-    for pattern in AppFactory().create_finder(args.input).get_patterns():
-        print(pattern)
-
-    return 0
+    return controller.handle_args(args.input, output_path=args.output, patterns=args.pattern)

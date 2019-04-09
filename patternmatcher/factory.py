@@ -1,4 +1,4 @@
-from typing import Any, Type
+from typing import Any, List, Type
 
 from . import classdiagram as cd
 from . import matcher as mt
@@ -17,23 +17,11 @@ class AppFactory:
     def create_diagram(file_path: str) -> cd.Diagram:
         return AppFactory.create_parser().parse_document(file_path)
 
-    def create_finder(self, file_path: str) -> PatternFinder:
-        return PatternFinder(self.create_diagram(file_path), self.create_multi_matcher())
+    def create_finder(self, file_path: str, matchers: List[Type[mt.Matcher]]) -> PatternFinder:
+        return PatternFinder(self.create_diagram(file_path), self.create_multi_matcher(matchers))
 
-    @memoized
-    def create_multi_matcher(self) -> mt.MultiMatcher:
-        return mt.MultiMatcher(
-            self.create_matcher(mt.AbstractFactoryMatcher),
-            self.create_matcher(mt.AdapterMatcher),
-            self.create_matcher(mt.BridgeMatcher),
-            self.create_matcher(mt.CompositeMatcher),
-            self.create_matcher(mt.DecoratorMatcher),
-            self.create_matcher(mt.FacadeMatcher),
-            self.create_matcher(mt.FactoryMethodMatcher),
-            self.create_matcher(mt.PrototypeMatcher),
-            self.create_matcher(mt.ProxyMatcher),
-            self.create_matcher(mt.SingletonMatcher)
-        )
+    def create_multi_matcher(self, matchers: List[Type[mt.Matcher]]) -> mt.MultiMatcher:
+        return mt.MultiMatcher(*[self.create_matcher(m) for m in matchers])
 
     @memoized
     def create_matcher(self, cls: Type[mt.Matcher]) -> Any:

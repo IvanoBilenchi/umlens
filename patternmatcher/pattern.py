@@ -123,3 +123,6 @@ class Singleton(Pattern):
         self.singleton = singleton
         self.attribute = attribute
         self.method = method
+
+
+ALL = Pattern.__subclasses__()
