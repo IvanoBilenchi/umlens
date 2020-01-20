@@ -17,6 +17,9 @@ class Pattern:
             elif isinstance(v, cd.Class):
                 yield v
 
+    def __lt__(self, other) -> bool:
+        return self.name < other.name
+
     def __repr__(self) -> str:
         attrs = []
 

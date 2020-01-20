@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import re
 from abc import ABC, abstractmethod
 from itertools import chain
-from typing import Iterable, List
+from typing import Dict, Iterable, List, Type
 
 from .classdiagram import AggType, Class, Diagram, Multiplicity, RelRole, Scope
 from .pattern import (
@@ -12,6 +14,21 @@ from .pattern import (
 
 class Matcher(ABC):
     """Matcher abstract class."""
+
+    @staticmethod
+    def all() -> Dict[Type[Pattern], Type[Matcher]]:
+        return {
+            AbstractFactory: AbstractFactoryMatcher,
+            Adapter: AdapterMatcher,
+            Bridge: BridgeMatcher,
+            Composite: CompositeMatcher,
+            Decorator: DecoratorMatcher,
+            Facade: FacadeMatcher,
+            FactoryMethod: FactoryMethodMatcher,
+            Prototype: PrototypeMatcher,
+            Proxy: ProxyMatcher,
+            Singleton: SingletonMatcher
+        }
 
     @abstractmethod
     def match(self, dg: Diagram, cls: Class) -> Iterable[Pattern]:
@@ -127,7 +144,7 @@ class CompositeMatcher(Matcher):
         composites = [c for c in composites if c in leaves]
 
         # Filter leaves
-        leaves = [l for l in leaves if l not in composites]
+        leaves = [leaf for leaf in leaves if leaf not in composites]
         yield from (Composite(c, cls, leaves) for c in composites if _all_unique(c, cls, *leaves))
 
 
