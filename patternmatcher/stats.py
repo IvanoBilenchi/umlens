@@ -16,16 +16,17 @@ class Stats:
                 'Classes: {}\n'
                 'Pattern types: {}\n'
                 'Classes involved in patterns: {}\n'
-                'Classes not involved in patterns: {}\n'
                 'Ratio of classes involved in patterns: {:.2f}\n'
                 'Average methods per class: {:.2f}\n'
                 'Average relationships per class: {:.2f}\n'
-                'Dependency cycles: {}'
+                'Dependency cycles: {}\n'
+                'Classes in cycles: {}\n'
+                'Ratio of classes in cycles: {:.2f}'
                 ).format(self.packages(), self.classes(), self.pattern_types(),
-                         self.classes_in_pattern(), self.classes_not_in_pattern(),
-                         self.classes_in_pattern_ratio(),
+                         self.classes_in_pattern(), self.classes_in_pattern_ratio(),
                          self.avg_methods_per_class(), self.avg_relationships_per_class(),
-                         self.dependency_cycles())
+                         self.dependency_cycles(), self.classes_in_cycle(),
+                         self.classes_in_cycle_ratio())
 
     @memoized
     def packages(self) -> int:
@@ -49,9 +50,15 @@ class Stats:
     def classes_in_pattern_ratio(self) -> float:
         return self.classes_in_pattern() / self.classes()
 
-    @memoized
     def dependency_cycles(self) -> int:
         return self._cycle_finder.cycle_count()
+
+    @memoized
+    def classes_in_cycle(self) -> int:
+        return len({c for cycle in self._cycle_finder.cycles() for c in cycle.involved_classes})
+
+    def classes_in_cycle_ratio(self) -> float:
+        return self.classes_in_cycle() / self.classes()
 
     @memoized
     def avg_methods_per_class(self) -> float:

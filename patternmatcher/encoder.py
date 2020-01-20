@@ -3,7 +3,7 @@ from itertools import groupby
 from typing import Iterable
 
 from .pattern import Pattern
-from .finder import CycleInfo
+from .finder import Cycle
 from .stats import Stats
 
 
@@ -15,16 +15,13 @@ class CustomJSONEncoder(json.JSONEncoder):
                 a: [str(i) for i in v] if isinstance(v, Iterable) else str(v)
                 for a, v in o.__dict__.items()
             }
-        elif isinstance(o, CycleInfo):
-            return {
-                'hierarchy': list(sorted(o.hierarchy)),
-                'count': o.count
-            }
+        elif isinstance(o, Cycle):
+            return o.involved_classes
         elif isinstance(o, Stats):
             return {k: getattr(o, k)() for k in (
                 'packages', 'classes', 'pattern_types', 'classes_in_pattern',
-                'classes_not_in_pattern', 'classes_in_pattern_ratio',
-                'avg_methods_per_class', 'avg_relationships_per_class', 'dependency_cycles'
+                'classes_in_pattern_ratio', 'avg_methods_per_class', 'avg_relationships_per_class',
+                'dependency_cycles', 'classes_in_cycle', 'classes_in_cycle_ratio'
             )}
         elif hasattr(o, 'name'):
             return o.name
@@ -37,7 +34,7 @@ def patterns_to_json(patterns: Iterable[Pattern], output_file: str) -> None:
     to_json(obj, output_file)
 
 
-def cycles_to_json(cycles: Iterable[CycleInfo], output_file: str) -> None:
+def cycles_to_json(cycles: Iterable[Cycle], output_file: str) -> None:
     to_json(list(cycles), output_file)
 
 

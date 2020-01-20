@@ -29,7 +29,7 @@ def detect_cycles(input_path: str, output_path: Optional[str] = None) -> int:
     if output_path:
         encoder.cycles_to_json(cycles, output_path)
     else:
-        print('Cycles: {}'.format(finder.cycle_count()))
+        print('Dependency cycles: {}'.format(finder.cycle_count()))
         for cycle in sorted(cycles):
             print(cycle)
 

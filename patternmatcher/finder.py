@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Dict, Iterator, List, Optional, Set, Type
 
-from .classdiagram import Class, Diagram, RelType
+from .classdiagram import Class, Diagram
 from .matcher import Matcher
 from .pattern import Pattern
+from .search import Node
 
 
 class PatternFinder:
@@ -48,18 +49,48 @@ class PatternFinder:
             patterns.append(p)
 
 
-class CycleInfo:
-    """Contains information about dependency cycles."""
+class Cycle:
+    """Models dependency cycles."""
 
-    def __init__(self, hierarchy: Set[Class], count: int):
-        self.hierarchy = hierarchy
-        self.count = count
+    def __init__(self, involved_classes: List[Class]):
+        self.involved_classes = involved_classes
 
-    def __lt__(self, other: CycleInfo) -> bool:
-        return min(self.hierarchy) < min(other.hierarchy)
+    def __eq__(self, other: Cycle) -> bool:
+        # Cycle equality must be checked cyclically.
+        if len(self.involved_classes) != len(other.involved_classes):
+            return False
+
+        cls_len = len(self.involved_classes)
+
+        if cls_len == 0:
+            return True
+
+        new_list = self.involved_classes * 2
+
+        for x in range(cls_len):
+            z = 0
+            for y in range(x, x + cls_len):
+                if other.involved_classes[z] == new_list[y]:
+                    z += 1
+                else:
+                    break
+
+            if z == cls_len:
+                return True
+
+        return False
+
+    def __hash__(self):
+        hval = 0
+        for cls in self.involved_classes:
+            hval ^= cls.__hash__()
+        return hval
+
+    def __lt__(self, other: Cycle) -> bool:
+        return self.__repr__() < other.__repr__()
 
     def __repr__(self) -> str:
-        return '{} -> {}'.format(', '.join(str(c) for c in sorted(self.hierarchy)), self.count)
+        return ', '.join(c.name for c in self.involved_classes)
 
 
 class CycleFinder:
@@ -69,12 +100,13 @@ class CycleFinder:
 
     def __init__(self, diagram: Diagram):
         self._diag = diagram
-        self._cycles: List[CycleInfo] = []
+        self._cycles: Set[Cycle] = set()
 
     def cycle_count(self) -> int:
-        return sum(c.count for c in self.cycles())
+        self._find_cycles()
+        return len(self._cycles)
 
-    def cycles(self) -> Iterator[CycleInfo]:
+    def cycles(self) -> Iterator[Cycle]:
         self._find_cycles()
         yield from self._cycles
 
@@ -84,41 +116,12 @@ class CycleFinder:
         if self._cycles:
             return
 
-        for hierarchy in self._hierarchies():
-            count = 0
+        for cls in self._diag.get_classes():
+            node = Node(self._diag, cls)
 
-            for neigh in self._neighbors_for_hierarchy(hierarchy):
-                count += self._cycles_for_hierarchy(hierarchy, neigh, set())
+            for solution in node.search(cls):
+                path = solution.path_to_root()
+                path.pop()
 
-            if count:
-                self._cycles.append(CycleInfo(hierarchy, count))
-
-    def _hierarchies(self) -> Iterator[Set[Class]]:
-        classes = set(self._diag.get_classes())
-
-        while len(classes):
-            cls = classes.pop()
-            ancestors = set(self._diag.get_ancestors(cls))
-            ancestors.add(cls)
-            classes.difference_update(ancestors)
-            yield ancestors
-
-    def _neighbors_for_class(self, cls: Class) -> Iterator[Class]:
-        return self._diag.get_related_classes(cls, kind=RelType.NON_HIERARCHICAL)
-
-    def _neighbors_for_hierarchy(self, hierarchy: Set[Class]) -> Iterator[Class]:
-        for cls in hierarchy:
-            yield from self._neighbors_for_class(cls)
-
-    def _cycles_for_hierarchy(self, hierarchy: Set[Class],
-                              current: Class, visited: Set[Class]) -> int:
-        count = 0
-
-        for c in self._neighbors_for_class(current):
-            if c in hierarchy:
-                count += 1
-            elif c not in visited:
-                visited.add(c)
-                count += self._cycles_for_hierarchy(hierarchy, c, visited)
-
-        return count
+                if len(path):
+                    self._cycles.add(Cycle(path))
