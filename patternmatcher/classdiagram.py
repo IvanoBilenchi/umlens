@@ -323,8 +323,9 @@ class Diagram:
     def get_relationship(self, identifier: str) -> Relationship:
         return self._get_typed_element(Relationship, identifier)
 
-    def get_classes(self) -> Iterator[Class]:
-        return (c for c in self._elements.values() if isinstance(c, Class))
+    def get_classes(self, exclude_interfaces: bool = False) -> Iterator[Class]:
+        return (c for c in self._elements.values()
+                if isinstance(c, Class) and not (exclude_interfaces and c.is_interface))
 
     def get_packages(self) -> Iterator[Package]:
         return (p for p in self._elements.values() if isinstance(p, Package))
@@ -378,6 +379,12 @@ class Diagram:
         return self.get_related_classes(cls, kind=RelType.GENERALIZATION,
                                         role=RelRole.RHS, match=match)
 
+    def get_leaf_classes(self, exclude_standalone: bool = False) -> Iterator[Class]:
+        for c in self.get_classes(exclude_interfaces=True):
+            if not self.has_sub_classes(c):
+                if not exclude_standalone or self.has_super_classes(c):
+                    yield c
+
     def get_ancestors(self, cls: Class, match: RelationshipMatch = None) -> Iterator[Class]:
         for c in self.get_super_classes(cls, match):
             yield c
@@ -412,8 +419,19 @@ class Diagram:
     def has_sub_classes(self, cls: Class) -> bool:
         return any(self.get_sub_classes(cls))
 
+    def has_super_classes(self, cls: Class) -> bool:
+        return any(self.get_super_classes(cls))
+
     def has_realizations(self, cls: Class) -> bool:
         return any(self.get_realizations(cls))
+
+    def get_inheritance_depth(self, cls: Class, start_depth: int = 0) -> int:
+        depth = start_depth
+
+        for c in self.get_super_classes(cls):
+            depth = max(self.get_inheritance_depth(c, start_depth=start_depth + 1), depth)
+
+        return depth
 
     def get_methods(self, cls: Class) -> Iterator[Method]:
         yield from cls.methods
