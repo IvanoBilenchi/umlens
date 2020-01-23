@@ -1,8 +1,9 @@
 from typing import Optional
 
-from . import json
+from .uml import json
+from .uml.matcher import Matcher
+
 from .factory import AppFactory
-from .matcher import Matcher
 
 matchers = {p.__name__.lower(): m for p, m in Matcher.all().items()}
 

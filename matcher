@@ -1,9 +1,0 @@
-#!/bin/bash
-cd "$(dirname "${0}")"
-
-ACTIVATE='venv/bin/activate'
-[ -f "${ACTIVATE}" ] && USE_VENV=true || USE_VENV=false
-
-$USE_VENV && source "${ACTIVATE}"
-python3 -m patternmatcher.main "$@"
-$USE_VENV && deactivate

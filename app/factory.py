@@ -1,18 +1,16 @@
 from typing import Any, Iterable, List, Optional, Type
 
-from . import classdiagram as cd
-from . import json
-from . import matcher as mt
-from .decorators import memoized
-from .finder import CycleFinder, PatternFinder
-from .matcher import Matcher
-from .metric import (
+from .uml import classdiagram as cd, json, matcher as mt
+from .uml.decorators import memoized
+from .uml.finder import CycleFinder, PatternFinder
+from .uml.matcher import Matcher
+from .uml.metric import (
     AvgInheritanceDepth, AvgMethodsPerClass, AvgRelationshipsPerClass, Classes, ClassesInCycle,
     ClassesInCycleRatio, ClassesInPattern, ClassesInPatternRatio, ComputedMetric, DependencyCycles,
     DevelopmentCost, MethodInstances, Metric, Packages, PatternTypes, RelationshipInstances,
     RemediationCost, TechnicalDebtRatio
 )
-from .parser import Parser
+from .uml.parser import Parser
 
 MatcherType = Type[mt.Matcher]
 

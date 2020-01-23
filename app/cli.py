@@ -5,7 +5,7 @@ from . import config, controller
 # Constants
 
 
-EXE_NAME = 'matcher'
+EXE_NAME = 'umlens'
 ALL_PATTERNS = controller.matchers.keys()
 
 

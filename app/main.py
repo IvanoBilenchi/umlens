@@ -20,7 +20,3 @@ def main() -> int:
             ret_val = 1
 
     return ret_val
-
-
-if __name__ == '__main__':
-    sys.exit(main())
