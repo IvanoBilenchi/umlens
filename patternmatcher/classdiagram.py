@@ -1,6 +1,6 @@
-from enum import auto, Enum, Flag, unique
+from enum import Enum, Flag, auto, unique
 from itertools import chain
-from typing import cast, Any, Callable, Dict, Iterable, Iterator, List, Optional, Set
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Set, cast
 
 
 class Element:

@@ -73,21 +73,23 @@ def build_parser() -> argparse.ArgumentParser:
 
     # 'cycles' subcommand
     description = 'List detected dependency cycles.'
-    info_parser = subparsers.add_parser('cycles',
-                                        description=description,
-                                        help=description,
-                                        parents=[help_parser, io_parser],
-                                        add_help=False)
-    info_parser.set_defaults(func=cycles_sub)
+    cycles_parser = subparsers.add_parser('cycles',
+                                          description=description,
+                                          help=description,
+                                          parents=[help_parser, io_parser],
+                                          add_help=False)
+    cycles_parser.set_defaults(func=cycles_sub)
 
-    # 'info' subcommand
-    description = 'Print miscellaneous information and stats.'
-    info_parser = subparsers.add_parser('info',
-                                        description=description,
-                                        help=description,
-                                        parents=[help_parser, io_parser],
-                                        add_help=False)
-    info_parser.set_defaults(func=info_sub)
+    # 'metrics' subcommand
+    description = 'Print metrics computed from the class diagram.'
+    metrics_parser = subparsers.add_parser('metrics',
+                                           description=description,
+                                           help=description,
+                                           parents=[help_parser, io_parser],
+                                           add_help=False)
+    metrics_parser.add_argument('-c', '--config',
+                                help='Configuration file.')
+    metrics_parser.set_defaults(func=metrics_sub)
 
     return main_parser
 
@@ -103,5 +105,5 @@ def cycles_sub(args) -> int:
     return controller.detect_cycles(args.input, output_path=args.output)
 
 
-def info_sub(args) -> int:
-    return controller.print_info(args.input, output_path=args.output)
+def metrics_sub(args) -> int:
+    return controller.compute_metrics(args.input, config_path=args.config, output_path=args.output)
