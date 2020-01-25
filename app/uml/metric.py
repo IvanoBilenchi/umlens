@@ -88,12 +88,17 @@ class RatioMetric(Generic[Numerator, Denominator], Metric):
 
     @property
     def value(self) -> MetricValue:
-        denominator = self.denominator.value
+        num = self.numerator.value
 
-        if denominator <= sys.float_info.epsilon:
+        if num <= sys.float_info.epsilon:
+            return 0.0
+
+        den = self.denominator.value
+
+        if den <= sys.float_info.epsilon:
             return metric_inf
 
-        return self.numerator.value / denominator
+        return num / den
 
 
 class LinearCombinationMetric(Metric):
