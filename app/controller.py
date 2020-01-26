@@ -1,9 +1,8 @@
 from typing import Optional
 
-from .uml import json
-from .uml.matcher import Matcher
-
 from .factory import AppFactory
+from .pattern.matcher import Matcher
+from .util import json
 
 matchers = {p.__name__.lower(): m for p, m in Matcher.all().items()}
 
@@ -38,7 +37,8 @@ def detect_cycles(input_path: str, output_path: Optional[str] = None) -> int:
 
 def compute_metrics(diagram_path: str, config_path: Optional[str] = None,
                     output_path: Optional[str] = None) -> int:
-    metrics = AppFactory(diagram_path, config_path=config_path).create_metrics()
+    metric_aggregator = AppFactory(diagram_path).create_metrics(config_path)
+    metrics = metric_aggregator.compute_metrics()
 
     if output_path:
         json.encode_metrics(metrics, output_path)

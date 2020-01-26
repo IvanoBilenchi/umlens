@@ -1,25 +1,22 @@
-from typing import Any, Iterable, List, Optional, Type
+from typing import Any, Iterable, Optional, Type
 
-from .uml import classdiagram as cd, json, matcher as mt
-from .uml.decorators import memoized
-from .uml.finder import CycleFinder, PatternFinder
-from .uml.matcher import Matcher
-from .uml.metric import (
-    AvgInheritanceDepth, AvgMethodsPerClass, AvgRelationshipsPerClass, Classes, ClassesInCycle,
-    ClassesInCycleRatio, ClassesInPattern, ClassesInPatternRatio, ComputedMetric, DependencyCycles,
-    DevelopmentCost, MethodInstances, Metric, Packages, PatternTypes, RelationshipInstances,
-    RemediationCost, TechnicalDebtRatio
-)
+from .cycle.finder import CycleFinder
+from .metric.aggregator import MetricAggregator
+from .pattern import matcher as mt
+from .pattern.finder import PatternFinder
+from .pattern.matcher import Matcher
+from .uml import model as cd
 from .uml.parser import Parser
+from .util import json
+from .util.decorators import memoized
 
 MatcherType = Type[mt.Matcher]
 
 
 class AppFactory:
 
-    def __init__(self, diagram_path: str, config_path: Optional[str] = None):
+    def __init__(self, diagram_path: str):
         self.diagram_path = diagram_path
-        self.config = json.load(config_path) if config_path else {}
 
     @classmethod
     def create_parser(cls) -> Parser:
@@ -38,48 +35,13 @@ class AppFactory:
             matchers = Matcher.all().values()
         return PatternFinder(self.create_diagram(), self.create_multi_matcher(matchers))
 
-    @memoized
-    def create_metric(self, mtype: Type[ComputedMetric]) -> ComputedMetric:
-        return mtype(self.create_diagram(),
-                     self.create_cycle_finder(),
-                     self.create_pattern_finder())
-
-    @memoized
-    def create_base_metrics(self) -> List[Metric]:
-        metrics = [self.create_metric(mtype)
-                   for mtype in (Packages, Classes, PatternTypes, ClassesInPattern,
-                                 MethodInstances, RelationshipInstances, AvgInheritanceDepth,
-                                 DependencyCycles, ClassesInCycle)]
-
-        for mtype, num, den in (
-            (ClassesInPatternRatio, ClassesInPattern, Classes),
-            (AvgMethodsPerClass, MethodInstances, Classes),
-            (AvgRelationshipsPerClass, RelationshipInstances, Classes),
-            (ClassesInCycleRatio, ClassesInCycle, Classes)
-        ):
-            metrics.append(mtype(self.create_metric(num), self.create_metric(den)))
-
-        return metrics
-
-    def create_metrics(self) -> List[Metric]:
-        metrics = self.create_base_metrics().copy()
-        metrics.append(self.create_development_cost())
-        metrics.append(self.create_remediation_cost())
-        metrics.append(self.create_technical_debt_ratio())
-        return metrics
-
-    def create_remediation_cost(self) -> RemediationCost:
-        return RemediationCost([(m, self.config[m.identifier])
-                                for m in self.create_base_metrics() if m.identifier in self.config])
-
-    def create_technical_debt_ratio(self) -> TechnicalDebtRatio:
-        return TechnicalDebtRatio(self.create_remediation_cost(), self.create_development_cost())
-
-    def create_development_cost(self) -> DevelopmentCost:
-        return DevelopmentCost(self.config.get(DevelopmentCost.id(), 0.0))
-
     def create_multi_matcher(self, matchers: Iterable[Type[mt.Matcher]]) -> mt.MultiMatcher:
         return mt.MultiMatcher(*[self.create_matcher(m) for m in matchers])
+
+    def create_metrics(self, config_path: Optional[str] = None) -> MetricAggregator:
+        config = json.load(config_path) if config_path else {}
+        return MetricAggregator(self.create_diagram(), self.create_cycle_finder(),
+                                self.create_pattern_finder(), config)
 
     @memoized
     def create_matcher(self, cls: Type[mt.Matcher]) -> Any:

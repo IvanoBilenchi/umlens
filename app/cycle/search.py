@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import deque
 from typing import Deque, Iterator, List, Optional, Set
 
-from .classdiagram import Class, Diagram
+from app.uml.model import Class, Diagram
 
 
 class Node:

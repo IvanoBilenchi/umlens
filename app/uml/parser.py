@@ -1,7 +1,7 @@
 import xml.etree.ElementTree as Et
 from typing import Optional
 
-from . import classdiagram as cd
+from . import model as cd
 
 
 class XT:

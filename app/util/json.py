@@ -2,9 +2,9 @@ import json
 from itertools import groupby
 from typing import Iterable
 
-from .finder import Cycle
-from .metric import Metric
-from .pattern import Pattern
+from app.cycle.finder import Cycle
+from app.metric.model import Metric
+from app.pattern.model import Pattern
 
 
 class CustomJSONEncoder(json.JSONEncoder):

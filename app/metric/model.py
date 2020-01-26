@@ -5,9 +5,10 @@ import sys
 from abc import ABC, abstractmethod
 from typing import Generic, Iterable, Tuple, TypeVar, Union
 
-from .classdiagram import Diagram
-from .decorators import cached_property, memoized
-from .finder import CycleFinder, PatternFinder
+from app.cycle.finder import CycleFinder
+from app.pattern.finder import PatternFinder
+from app.uml.model import Diagram
+from app.util.decorators import cached_property, memoized
 
 MetricValue = Union[int, float]
 metric_inf = float('inf')

@@ -5,8 +5,8 @@ from abc import ABC, abstractmethod
 from itertools import chain
 from typing import Dict, Iterable, List, Type
 
-from .classdiagram import AggType, Class, Diagram, Multiplicity, RelRole, Scope
-from .pattern import (
+from app.uml.model import AggType, Class, Diagram, Multiplicity, RelRole, Scope
+from .model import (
     AbstractFactory, Adapter, Bridge, Composite, Decorator, Facade, FactoryMethod, Pattern,
     Prototype, Proxy, Singleton
 )

@@ -1,5 +1,6 @@
-from typing import List, Iterable
-from . import classdiagram as cd
+from typing import Iterable, List
+
+from app.uml import model as cd
 
 
 class Pattern:
