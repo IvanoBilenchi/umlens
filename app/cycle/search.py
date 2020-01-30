@@ -10,31 +10,30 @@ class Node:
     """Allows searching for paths in the class diagram."""
 
     def __init__(self, diagram: Diagram, cls: Class, parent: Optional[Node] = None):
-        self.diagram = diagram
-        self.cls = cls
-        self.parent = parent
-        self.depth: int = parent.depth + 1 if parent else 0
+        self._diag = diagram
+        self._cls = cls
+        self._parent = parent
 
     def __eq__(self, other: Node) -> bool:
-        return self.cls == other.cls
+        return self._cls == other._cls
 
     def __hash__(self) -> int:
-        return self.cls.__hash__()
+        return self._cls.__hash__()
 
     def __repr__(self) -> str:
-        return self.cls.__repr__()
+        return self._cls.__repr__()
 
     def children(self) -> Iterator[Node]:
-        for cls in self.diagram.get_related_classes(self.cls):
-            yield Node(self.diagram, cls, self)
+        for cls in self._diag.related_classes(self._cls):
+            yield Node(self._diag, cls, self)
 
     def path_to_root(self) -> List[Class]:
         path = []
         cur_node = self
 
         while cur_node:
-            path.append(cur_node.cls)
-            cur_node = cur_node.parent
+            path.append(cur_node._cls)
+            cur_node = cur_node._parent
 
         path.reverse()
         return path
@@ -48,7 +47,7 @@ class Node:
         while len(fringe):
             node = fringe.popleft()
 
-            if node.cls == goal:
+            if node._cls == goal:
                 solutions.append(node)
 
             if node not in closed:

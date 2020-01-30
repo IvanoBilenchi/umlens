@@ -1,4 +1,4 @@
-from typing import Iterable, List
+from typing import Iterable, Iterator, List
 
 from app.uml import model as cd
 
@@ -11,7 +11,7 @@ class Pattern:
         return self.__class__.__name__
 
     @property
-    def involved_classes(self) -> Iterable[cd.Class]:
+    def involved_classes(self) -> Iterator[cd.Class]:
         for v in self.__dict__.values():
             if isinstance(v, Iterable):
                 yield from (c for c in v if isinstance(c, cd.Class))

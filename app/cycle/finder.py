@@ -38,6 +38,7 @@ class Cycle:
         return False
 
     def __hash__(self):
+        # Hash must me invariant wrt cyclic equality.
         hval = 0
         for cls in self.involved_classes:
             hval ^= cls.__hash__()
@@ -73,7 +74,7 @@ class CycleFinder:
         if self._cycles:
             return
 
-        for cls in self._diag.get_classes():
+        for cls in self._diag.classes():
             node = Node(self._diag, cls)
 
             for solution in node.search(cls):

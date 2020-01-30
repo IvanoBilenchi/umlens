@@ -62,14 +62,14 @@ class AbstractFactoryMatcher(Matcher):
             return
 
         # Find concrete factories
-        cf = list(c for c in dg.get_realizations(cls)
-                  if any(r for r in dg.get_dependencies(c, match=lambda r: r.is_creational)))
+        cf = list(c for c in dg.realizations(cls)
+                  if any(r for r in dg.dependencies(c, match=lambda r: r.is_creational)))
 
         if not cf:
             return
 
         # Find concrete products
-        cp = set(p for f in cf for p in dg.get_dependencies(f, match=lambda r: r.is_creational))
+        cp = set(p for f in cf for p in dg.dependencies(f, match=lambda r: r.is_creational))
 
         yield AbstractFactory(cls, list(pr), cf, list(cp))
 
@@ -82,13 +82,13 @@ class AdapterMatcher(Matcher):
             return
 
         # Find adapters
-        adapters = dg.get_realizations(cls)
+        adapters = dg.realizations(cls)
 
         for adapter in adapters:
             # Find adaptees
             adaptees = list(chain(
-                dg.get_dependencies(adapter, match=lambda r: not r.is_creational),
-                dg.get_super_classes(adapter)
+                dg.dependencies(adapter, match=lambda r: not r.is_creational),
+                dg.super_classes(adapter)
             ))
 
             if len(adaptees) == 1 and _all_unique(cls, adapter, adaptees[0]):
@@ -103,14 +103,13 @@ class BridgeMatcher(Matcher):
             return
 
         # Find refined abstractions
-        r_abs = list(dg.get_sub_classes(cls))
+        r_abs = list(dg.sub_classes(cls))
 
         if not r_abs:
             return
 
         # Find implementor
-        impl = list(dg.get_associated_classes(cls, match=(lambda a:
-                                                          a.aggregation_type in AggType.ANY)))
+        impl = list(dg.associated_classes(cls, match=(lambda a: a.aggregation_type in AggType.ANY)))
 
         if len(impl) != 1:
             return
@@ -118,7 +117,7 @@ class BridgeMatcher(Matcher):
         impl = impl[0]
 
         # Find concrete implementors
-        concr = list(chain(dg.get_sub_classes(impl), dg.get_realizations(impl)))
+        concr = list(chain(dg.sub_classes(impl), dg.realizations(impl)))
 
         if _all_unique(cls, impl, *r_abs, *concr):
             yield Bridge(cls, impl, r_abs, concr)
@@ -129,18 +128,18 @@ class CompositeMatcher(Matcher):
 
     def match(self, dg: Diagram, cls: Class) -> Iterable[Composite]:
         # Find leaves
-        leaves = list(dg.get_realizations(cls) if cls.is_interface else dg.get_sub_classes(cls))
+        leaves = list(dg.realizations(cls) if cls.is_interface else dg.sub_classes(cls))
 
         if len(leaves) <= 1:
             return
 
         # Find composites
-        composites = dg.get_associated_classes(cls,
-                                               role=RelRole.RHS,
-                                               match=(lambda a:
-                                                      a.aggregation_type in AggType.ANY and
-                                                      a.from_mult == Multiplicity.ONE and
-                                                      a.to_mult in Multiplicity.MULTIPLE))
+        composites = dg.associated_classes(cls,
+                                           role=RelRole.RHS,
+                                           match=(lambda a:
+                                                  a.aggregation_type in AggType.ANY and
+                                                  a.from_mult == Multiplicity.ONE and
+                                                  a.to_mult in Multiplicity.MULTIPLE))
         composites = [c for c in composites if c in leaves]
 
         # Filter leaves
@@ -153,25 +152,25 @@ class DecoratorMatcher(Matcher):
 
     def match(self, dg: Diagram, cls: Class) -> Iterable[Decorator]:
         # Find concrete components
-        cc = list(dg.get_realizations(cls) if cls.is_interface else dg.get_sub_classes(cls))
+        cc = list(dg.realizations(cls) if cls.is_interface else dg.sub_classes(cls))
 
         if len(cc) <= 1:
             return
 
         # Find decorators
-        decorators = dg.get_associated_classes(cls,
-                                               role=RelRole.RHS,
-                                               match=(lambda a:
-                                                      a.aggregation_type in AggType.ANY and
-                                                      a.from_mult in Multiplicity.ONE and
-                                                      a.to_mult == Multiplicity.ONE))
+        decorators = dg.associated_classes(cls,
+                                           role=RelRole.RHS,
+                                           match=(lambda a:
+                                                  a.aggregation_type in AggType.ANY and
+                                                  a.from_mult in Multiplicity.ONE and
+                                                  a.to_mult == Multiplicity.ONE))
         decorators = [d for d in decorators if (d in cc and dg.has_sub_classes(d))]
 
         # Filter concrete components
         cc = [c for c in cc if c not in decorators]
 
         for d in decorators:
-            cd = list(dg.get_sub_classes(d))
+            cd = list(dg.sub_classes(d))
 
             if _all_unique(d, cls, *cc, *cd):
                 yield Decorator(d, cls, cc, cd)
@@ -182,7 +181,7 @@ class FacadeMatcher(Matcher):
 
     def match(self, dg: Diagram, cls: Class) -> Iterable[Facade]:
         # Find dependencies
-        deps = list(dg.get_dependencies(cls))
+        deps = list(dg.dependencies(cls))
         if len(deps) > 2:
             yield Facade(cls, deps)
 
@@ -194,12 +193,12 @@ class FactoryMethodMatcher(Matcher):
 
     def match(self, dg: Diagram, cls: Class) -> Iterable[FactoryMethod]:
         # Find factory methods
-        methods = (m for m in dg.get_methods(cls)
+        methods = (m for m in dg.methods(cls)
                    if isinstance(m.return_type, Class) and self._regex.match(m.name))
 
-        created = list(dg.get_dependencies(cls, match=(lambda r:
-                                                       (r.is_creational and
-                                                        not r.to_cls.is_interface))))
+        created = list(dg.dependencies(cls, match=(lambda r:
+                                                   (r.is_creational and
+                                                    not r.to_cls.is_interface))))
 
         for m in methods:
             # Attempt to find specific types
@@ -223,7 +222,7 @@ class PrototypeMatcher(Matcher):
             return
 
         # Find concrete prototypes
-        cp = list(dg.get_realizations(cls))
+        cp = list(dg.realizations(cls))
 
         if not cp:
             return
@@ -236,16 +235,16 @@ class ProxyMatcher(Matcher):
 
     def match(self, dg: Diagram, cls: Class) -> Iterable[Proxy]:
         # Find proxies
-        proxies = list(dg.get_realizations(cls) if cls.is_interface else dg.get_sub_classes(cls))
+        proxies = list(dg.realizations(cls) if cls.is_interface else dg.sub_classes(cls))
 
         if len(proxies) <= 1:
             return
 
         for p in proxies:
-            if any(r for r in dg.get_associated_classes(p)):
+            if any(r for r in dg.associated_classes(p)):
                 continue
 
-            deps = list(r for r in dg.get_dependencies(p))
+            deps = list(r for r in dg.dependencies(p))
 
             if len(deps) == 1:
                 real_subject = deps[0]

@@ -1,6 +1,6 @@
 from enum import Enum, Flag, auto, unique
 from itertools import chain
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Set, cast
+from typing import Any, Callable, Dict, Iterator, List, Optional, Set, cast
 
 
 class Element:
@@ -107,13 +107,16 @@ class Attribute(TypedElement):
 class Method(Element):
     """Models methods."""
 
-    def __init__(self, identifier: str, name: str, scope: Scope = Scope.INSTANCE,
-                 abstract: bool = False) -> None:
+    def __init__(self, identifier: str, name: str,
+                 scope: Scope = Scope.INSTANCE,
+                 abstract: bool = False,
+                 parameters: Optional[List[Parameter]] = None,
+                 return_type: Optional[Datatype] = None) -> None:
         super().__init__(identifier=identifier, name=name)
         self.scope = scope
         self.abstract = abstract
-        self.parameters: List[Parameter] = []
-        self.return_type: Optional[Datatype] = None
+        self.parameters: List[Parameter] = parameters if parameters else []
+        self.return_type: Optional[Datatype] = return_type
 
     def __repr__(self) -> str:
         args = ', '.join(repr(a) for a in self.parameters)
@@ -126,12 +129,9 @@ class Method(Element):
                 self.return_type == other.return_type and
                 all(m1.equals(m2) for (m1, m2) in zip(self.parameters, other.parameters)))
 
-    def add_parameter(self, param: Parameter) -> None:
-        self.parameters.append(param)
-
 
 class Package(Element):
-    """Models packages."""
+    """Models package."""
     pass
 
 
@@ -172,18 +172,6 @@ class Class(Datatype):
 
     def __str__(self) -> str:
         return self.qualified_name
-
-    def has_attribute(self, attribute: Attribute) -> bool:
-        return any(a.equals(attribute) for a in self.attributes)
-
-    def has_method(self, method: Method) -> bool:
-        return any(m.equals(method) for m in self.methods)
-
-    def has_attributes(self, attributes: Iterable[Attribute]) -> bool:
-        return all(self.has_attribute(a) for a in attributes)
-
-    def has_methods(self, methods: Iterable[Method]) -> bool:
-        return all(self.has_method(m) for m in methods)
 
 
 class RelType(Flag):
@@ -308,32 +296,32 @@ class Diagram:
         self._elements: Dict[str, Element] = {}
         self._relationships: Dict[str, Set[Relationship]] = {}
 
-    def get_package(self, identifier: str) -> Package:
+    def package(self, identifier: str) -> Package:
         return self._get_typed_element(Package, identifier)
 
-    def get_class(self, identifier: str) -> Class:
+    def cls(self, identifier: str) -> Class:
         return self._get_typed_element(Class, identifier)
 
-    def get_datatype(self, identifier: str) -> Datatype:
+    def datatype(self, identifier: str) -> Datatype:
         return self._get_typed_element(Datatype, identifier)
 
-    def get_stereotype(self, identifier: str) -> Stereotype:
+    def stereotype(self, identifier: str) -> Stereotype:
         return self._get_typed_element(Stereotype, identifier)
 
-    def get_relationship(self, identifier: str) -> Relationship:
+    def relationship(self, identifier: str) -> Relationship:
         return self._get_typed_element(Relationship, identifier)
 
-    def get_classes(self, exclude_interfaces: bool = False) -> Iterator[Class]:
+    def classes(self, exclude_interfaces: bool = False) -> Iterator[Class]:
         return (c for c in self._elements.values()
                 if isinstance(c, Class) and not (exclude_interfaces and c.is_interface))
 
-    def get_packages(self) -> Iterator[Package]:
+    def packages(self) -> Iterator[Package]:
         return (p for p in self._elements.values() if isinstance(p, Package))
 
-    def get_relationships(self, cls: Class,
-                          kind: Optional[RelType] = None,
-                          role: RelRole = RelRole.ANY,
-                          match: RelationshipMatch = None) -> Iterator[Relationship]:
+    def relationships(self, cls: Class,
+                      kind: Optional[RelType] = None,
+                      role: RelRole = RelRole.ANY,
+                      match: RelationshipMatch = None) -> Iterator[Relationship]:
         rel = self._relationships.get(cls.identifier, [])
 
         if kind:
@@ -349,9 +337,9 @@ class Diagram:
 
         return rel
 
-    def get_associations(self, cls: Class, role: RelRole = RelRole.RHS,
-                         match: AssociationMatch = None) -> Iterator[Association]:
-        assoc = self.get_relationships(cls, kind=RelType.ASSOCIATION, role=role)
+    def associations(self, cls: Class, role: RelRole = RelRole.RHS,
+                     match: AssociationMatch = None) -> Iterator[Association]:
+        assoc = self.relationships(cls, kind=RelType.ASSOCIATION, role=role)
         assoc = cast(Iterator[Association], assoc)
 
         if match:
@@ -359,85 +347,85 @@ class Diagram:
 
         return assoc
 
-    def get_related_classes(self, cls: Class,
-                            kind: Optional[RelType] = None,
-                            role: RelRole = RelRole.LHS,
-                            match: RelationshipMatch = None) -> Iterator[Class]:
+    def related_classes(self, cls: Class,
+                        kind: Optional[RelType] = None,
+                        role: RelRole = RelRole.LHS,
+                        match: RelationshipMatch = None) -> Iterator[Class]:
         return (r.to_cls if r.from_cls == cls else r.from_cls
-                for r in self.get_relationships(cls, kind=kind, role=role, match=match))
+                for r in self.relationships(cls, kind=kind, role=role, match=match))
 
-    def get_associated_classes(self, cls: Class, role: RelRole = RelRole.LHS,
-                               match: AssociationMatch = None) -> Iterator[Class]:
+    def associated_classes(self, cls: Class, role: RelRole = RelRole.LHS,
+                           match: AssociationMatch = None) -> Iterator[Class]:
         return (r.to_cls if r.from_cls == cls else r.from_cls
-                for r in self.get_associations(cls, role=role, match=match))
+                for r in self.associations(cls, role=role, match=match))
 
-    def get_sub_classes(self, cls: Class, match: RelationshipMatch = None) -> Iterator[Class]:
-        return self.get_related_classes(cls, kind=RelType.GENERALIZATION,
-                                        role=RelRole.LHS, match=match)
+    def sub_classes(self, cls: Class, match: RelationshipMatch = None) -> Iterator[Class]:
+        return self.related_classes(cls, kind=RelType.GENERALIZATION,
+                                    role=RelRole.LHS, match=match)
 
-    def get_super_classes(self, cls: Class, match: RelationshipMatch = None) -> Iterator[Class]:
-        return self.get_related_classes(cls, kind=RelType.GENERALIZATION,
-                                        role=RelRole.RHS, match=match)
+    def super_classes(self, cls: Class, match: RelationshipMatch = None) -> Iterator[Class]:
+        return self.related_classes(cls, kind=RelType.GENERALIZATION,
+                                    role=RelRole.RHS, match=match)
 
-    def get_leaf_classes(self, exclude_standalone: bool = False) -> Iterator[Class]:
-        for c in self.get_classes(exclude_interfaces=True):
+    def leaf_classes(self, exclude_standalone: bool = False) -> Iterator[Class]:
+        for c in self.classes(exclude_interfaces=True):
             if not self.has_sub_classes(c):
                 if not exclude_standalone or self.has_super_classes(c):
                     yield c
 
-    def get_ancestors(self, cls: Class, match: RelationshipMatch = None) -> Iterator[Class]:
-        for c in self.get_super_classes(cls, match):
+    def ancestors(self, cls: Class, match: RelationshipMatch = None) -> Iterator[Class]:
+        for c in self.super_classes(cls, match):
             yield c
-            yield from self.get_ancestors(c, match)
+            yield from self.ancestors(c, match)
 
-    def get_realizations(self, cls: Class, match: RelationshipMatch = None) -> Iterator[Class]:
+    def realizations(self, cls: Class, match: RelationshipMatch = None) -> Iterator[Class]:
         if not cls.is_interface:
             return
 
-        yield from self.get_related_classes(cls, kind=RelType.REALIZATION,
-                                            role=RelRole.LHS, match=match)
-
-    def get_interfaces(self, cls: Class, match: RelationshipMatch = None) -> Iterator[Class]:
-        return self.get_related_classes(cls, kind=RelType.REALIZATION,
-                                        role=RelRole.RHS, match=match)
-
-    def get_dependencies(self, cls: Class, match: RelationshipMatch = None) -> Iterator[Class]:
-        return self.get_related_classes(cls, kind=RelType.DEPENDENCY,
+        yield from self.related_classes(cls, kind=RelType.REALIZATION,
                                         role=RelRole.LHS, match=match)
 
-    def get_dependants(self, cls: Class, match: RelationshipMatch = None) -> Iterator[Class]:
-        return self.get_related_classes(cls, kind=RelType.DEPENDENCY,
-                                        role=RelRole.RHS, match=match)
+    def interfaces(self, cls: Class, match: RelationshipMatch = None) -> Iterator[Class]:
+        return self.related_classes(cls, kind=RelType.REALIZATION,
+                                    role=RelRole.RHS, match=match)
+
+    def dependencies(self, cls: Class, match: RelationshipMatch = None) -> Iterator[Class]:
+        return self.related_classes(cls, kind=RelType.DEPENDENCY,
+                                    role=RelRole.LHS, match=match)
+
+    def dependants(self, cls: Class, match: RelationshipMatch = None) -> Iterator[Class]:
+        return self.related_classes(cls, kind=RelType.DEPENDENCY,
+                                    role=RelRole.RHS, match=match)
 
     def is_sub_class(self, sub_cls: Class, super_cls: Class) -> bool:
-        return any(c for c in self.get_sub_classes(super_cls) if c == sub_cls)
+        return any(c for c in self.sub_classes(super_cls) if c == sub_cls)
 
     def is_realization(self, realization: Class, interface: Class) -> bool:
         return (interface.is_interface and
-                any(c for c in self.get_realizations(interface) if c == realization))
+                any(c for c in self.realizations(interface) if c == realization))
 
     def has_sub_classes(self, cls: Class) -> bool:
-        return any(self.get_sub_classes(cls))
+        return any(self.sub_classes(cls))
 
     def has_super_classes(self, cls: Class) -> bool:
-        return any(self.get_super_classes(cls))
+        return any(self.super_classes(cls))
 
     def has_realizations(self, cls: Class) -> bool:
-        return any(self.get_realizations(cls))
+        return any(self.realizations(cls))
 
-    def get_inheritance_depth(self, cls: Class, start_depth: int = 0) -> int:
+    def inheritance_depth(self, cls: Class, start_depth: int = 0) -> int:
         depth = start_depth
 
-        for c in self.get_super_classes(cls):
-            depth = max(self.get_inheritance_depth(c, start_depth=start_depth + 1), depth)
+        for c in self.super_classes(cls):
+            depth = max(self.inheritance_depth(c, start_depth=start_depth + 1), depth)
 
         return depth
 
-    def get_methods(self, cls: Class) -> Iterator[Method]:
+    def methods(self, cls: Class) -> Iterator[Method]:
         yield from cls.methods
 
-        for c in chain(self.get_interfaces(cls), self.get_super_classes(cls)):
-            yield from self.get_methods(c)
+        for c in chain(self.interfaces(cls), self.super_classes(cls)):
+            yield from self.methods(c)
 
     def add_element(self, element: Element) -> None:
         self._elements[element.identifier] = element

@@ -114,17 +114,17 @@ class LinearCombinationMetric(Metric):
 
 
 class Packages(ComputedMetric):
-    """Number of packages."""
+    """Number of package."""
 
     def _compute(self) -> MetricValue:
-        return sum(1 for _ in self._diag.get_packages())
+        return sum(1 for _ in self._diag.packages())
 
 
 class Classes(ComputedMetric):
     """Number of classes."""
 
     def _compute(self) -> MetricValue:
-        return sum(1 for _ in self._diag.get_classes())
+        return sum(1 for _ in self._diag.classes())
 
 
 class PatternTypes(ComputedMetric):
@@ -169,7 +169,7 @@ class MethodInstances(ComputedMetric):
     """Number of method instances."""
 
     def _compute(self) -> MetricValue:
-        return sum(1 for c in self._diag.get_classes() for _ in self._diag.get_methods(c))
+        return sum(1 for c in self._diag.classes() for _ in self._diag.methods(c))
 
 
 class AvgMethodsPerClass(RatioMetric[MethodInstances, Classes]):
@@ -181,7 +181,7 @@ class RelationshipInstances(ComputedMetric):
     """Number of relationship instances."""
 
     def _compute(self) -> MetricValue:
-        return sum(1 for c in self._diag.get_classes() for _ in self._diag.get_relationships(c))
+        return sum(1 for c in self._diag.classes() for _ in self._diag.relationships(c))
 
 
 class AvgRelationshipsPerClass(RatioMetric[RelationshipInstances, Classes]):
@@ -193,13 +193,13 @@ class AvgInheritanceDepth(ComputedMetric):
     """Average depth of inheritance trees."""
 
     def _compute(self) -> MetricValue:
-        leaf_classes = list(self._diag.get_leaf_classes(exclude_standalone=True))
+        leaf_classes = list(self._diag.leaf_classes(exclude_standalone=True))
         n_classes = len(leaf_classes)
 
         if n_classes == 0:
             return 0.0
 
-        return sum(self._diag.get_inheritance_depth(c) for c in leaf_classes) / n_classes
+        return sum(self._diag.inheritance_depth(c) for c in leaf_classes) / n_classes
 
 
 class RemediationCost(LinearCombinationMetric):

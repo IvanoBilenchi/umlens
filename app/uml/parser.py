@@ -189,8 +189,8 @@ class Parser:
             relationship = cd.Relationship(
                 identifier=self._parse_identifier(node),
                 rel_type=self._parse_rel_type(node),
-                from_cls=self._diagram.get_class(self._parse_identifier(node, attr=XA.FROM)),
-                to_cls=self._diagram.get_class(self._parse_identifier(node, attr=XA.TO))
+                from_cls=self._diagram.cls(self._parse_identifier(node, attr=XA.FROM)),
+                to_cls=self._diagram.cls(self._parse_identifier(node, attr=XA.TO))
             )
 
             self._add_stereotypes(relationship, node)
@@ -209,8 +209,8 @@ class Parser:
             association = cd.Association(
                 identifier=self._parse_identifier(node),
                 agg_type=self._parse_agg_type(from_node),
-                from_cls=self._diagram.get_class(from_cls_id),
-                to_cls=self._diagram.get_class(to_cls_id),
+                from_cls=self._diagram.cls(from_cls_id),
+                to_cls=self._diagram.cls(to_cls_id),
                 from_mult=self._parse_mult(from_node),
                 to_mult=self._parse_mult(to_node)
             )
@@ -221,7 +221,7 @@ class Parser:
             return
 
     def _populate_class(self, node: Et.Element) -> None:
-        cls = self._diagram.get_class(self._parse_identifier(node))
+        cls = self._diagram.cls(self._parse_identifier(node))
         ch_node = node.find(XT.MODEL_CHILDREN)
 
         if ch_node:
@@ -243,20 +243,21 @@ class Parser:
         cls.attributes.append(attr)
 
     def _add_method(self, cls: cd.Class, node: Et.Element) -> None:
+        parameters = [
+            cd.Parameter(identifier=self._parse_identifier(child),
+                         name=self._parse_name(child),
+                         datatype=self._get_ref_datatype(child.find(XT.TYPE)))
+            for child in node.iter(XT.PARAMETER)
+        ]
+
         method = cd.Method(
             identifier=self._parse_identifier(node),
             name=self._parse_name(node),
             scope=self._parse_scope(node),
-            abstract=self._parse_abstract(node)
+            abstract=self._parse_abstract(node),
+            parameters=parameters,
+            return_type=self._get_ref_datatype(node.find(XT.RET_TYPE))
         )
-
-        method.return_type = self._get_ref_datatype(node.find(XT.RET_TYPE))
-
-        for child in node.iter(XT.PARAMETER):
-            param = cd.Parameter(identifier=self._parse_identifier(child),
-                                 name=self._parse_name(child),
-                                 datatype=self._get_ref_datatype(child.find(XT.TYPE)))
-            method.add_parameter(param)
 
         cls.methods.append(method)
 
@@ -268,12 +269,12 @@ class Parser:
 
     def _get_ref_datatype(self, node: Et.Element) -> Optional[cd.Datatype]:
         try:
-            return self._diagram.get_datatype(self._parse_identifier(node[0], attr=XA.ID_REF))
+            return self._diagram.datatype(self._parse_identifier(node[0], attr=XA.ID_REF))
         except Exception:
             return None
 
     def _get_ref_stereotype(self, node: Et.Element) -> Optional[cd.Stereotype]:
         try:
-            return self._diagram.get_stereotype(self._parse_identifier(node, attr=XA.ID_REF))
+            return self._diagram.stereotype(self._parse_identifier(node, attr=XA.ID_REF))
         except Exception:
             return None
