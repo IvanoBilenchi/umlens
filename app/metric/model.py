@@ -11,6 +11,7 @@ from app.uml.model import Diagram
 from app.util.decorators import cached_property, memoized
 
 MetricValue = Union[int, float]
+metric_eps = sys.float_info.epsilon
 metric_inf = float('inf')
 
 Numerator = TypeVar('Numerator', bound='Metric')
@@ -91,12 +92,12 @@ class RatioMetric(Generic[Numerator, Denominator], Metric):
     def value(self) -> MetricValue:
         num = self.numerator.value
 
-        if num <= sys.float_info.epsilon:
+        if num <= metric_eps:
             return 0.0
 
         den = self.denominator.value
 
-        if den <= sys.float_info.epsilon:
+        if den <= metric_eps:
             return metric_inf
 
         return num / den

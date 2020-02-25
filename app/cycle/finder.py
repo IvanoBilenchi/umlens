@@ -38,7 +38,7 @@ class Cycle:
         return False
 
     def __hash__(self):
-        # Hash must me invariant wrt cyclic equality.
+        # Hash must be invariant wrt cyclic equality.
         hval = 0
         for cls in self.involved_classes:
             hval ^= cls.__hash__()

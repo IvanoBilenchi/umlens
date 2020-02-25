@@ -294,7 +294,7 @@ class Diagram:
 
     def __init__(self) -> None:
         self._elements: Dict[str, Element] = {}
-        self._relationships: Dict[str, Set[Relationship]] = {}
+        self._relationships: Dict[Element, Set[Relationship]] = {}
 
     def package(self, identifier: str) -> Package:
         return self._get_typed_element(Package, identifier)
@@ -322,7 +322,7 @@ class Diagram:
                       kind: Optional[RelType] = None,
                       role: RelRole = RelRole.ANY,
                       match: RelationshipMatch = None) -> Iterator[Relationship]:
-        rel = self._relationships.get(cls.identifier, [])
+        rel = self._relationships.get(cls, [])
 
         if kind:
             rel = (r for r in rel if r.rel_type in kind)
@@ -433,7 +433,7 @@ class Diagram:
     def add_relationship(self, relationship: Relationship) -> None:
         self.add_element(relationship)
 
-        for key in [relationship.from_cls.identifier, relationship.to_cls.identifier]:
+        for key in (relationship.from_cls, relationship.to_cls):
             relationships = self._relationships.get(key, set())
 
             if not relationships:

@@ -47,6 +47,7 @@ class XA:
     TO = 'To'
 
 
+# noinspection PyBroadException
 class Parser:
 
     # Public

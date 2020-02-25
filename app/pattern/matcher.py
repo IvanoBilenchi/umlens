@@ -162,7 +162,7 @@ class DecoratorMatcher(Matcher):
                                            role=RelRole.RHS,
                                            match=(lambda a:
                                                   a.aggregation_type in AggType.ANY and
-                                                  a.from_mult in Multiplicity.ONE and
+                                                  a.from_mult == Multiplicity.ONE and
                                                   a.to_mult == Multiplicity.ONE))
         decorators = [d for d in decorators if (d in cc and dg.has_sub_classes(d))]
 
@@ -257,8 +257,7 @@ class SingletonMatcher(Matcher):
     """Singleton matcher."""
 
     def match(self, dg: Diagram, cls: Class) -> Iterable[Singleton]:
-        eligible = (a for a in cls.attributes if (a.scope == Scope.CLASS and
-                                                  a.datatype == cls))
+        eligible = (a for a in cls.attributes if (a.scope == Scope.CLASS and a.datatype == cls))
         attribute = next(eligible, None)
 
         if not attribute:
